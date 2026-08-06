@@ -13,8 +13,9 @@ permissions:
   id-token: write
 
 # One deployment at a time, but never cancel one that is already running.
-# Cancelling mid-deploy leaves the Pages backend holding a half-finished
-# deployment, and the next run then sits in `deployment_queued` behind it.
+# A Pages deployment is keyed by commit SHA, so cancelling one mid-flight marks
+# that SHA terminally cancelled — re-running the same commit then fails
+# instantly with "Deployment cancelled" and only a fresh commit can deploy.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -39,9 +40,11 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    # deploy-pages polls the Pages backend and will otherwise wait out the full
-    # job limit if that queue stalls. Fail in 10 minutes instead of six hours.
-    timeout-minutes: 10
+    # deploy-pages polls the Pages backend and gives up on its own after 10
+    # minutes. Sit just above that so the action reports the stall itself —
+    # killing the job at exactly 10 cancels the deployment instead, which
+    # burns the commit SHA (see the concurrency note above).
+    timeout-minutes: 12
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
