@@ -40,14 +40,17 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    # deploy-pages polls the Pages backend and gives up on its own after 10
-    # minutes. Sit just above that so the action reports the stall itself —
-    # killing the job at exactly 10 cancels the deployment instead, which
-    # burns the commit SHA (see the concurrency note above).
-    timeout-minutes: 12
+    # This site's Pages backend takes a little over 10 minutes to publish, which
+    # is just past deploy-pages' default 600000 ms poll window — the content
+    # went live seconds *after* the action had already given up and cancelled.
+    # Wait 20 minutes for it, and keep the job cap above that so the action
+    # reports the stall itself rather than being killed mid-poll.
+    timeout-minutes: 22
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          timeout: 1200000
