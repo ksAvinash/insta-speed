@@ -42,11 +42,16 @@ export default {
   },
   tire: { compound: 'road', B: 10, C: 1.9, D: 1.2, E: 0.97 },
 
-  launchSpeedKph: 450,
+  maxLaunchKph: 450,         // TOP of the ladder, not the starting speed
   model: null,
   body: { parts: [...], wheels: {...} },
 };
 ```
+
+`maxLaunchKph` is a cap. Players start every vehicle at 100 km/h and unlock
+50 km/h more per clean stop (`src/core/speeds.js`), so this sets how long the
+ladder is and what the final run feels like. Courses are sized per rung, so a
+high cap does not make the early runs any longer.
 
 ### Choosing numbers that work
 
@@ -116,7 +121,7 @@ export default {
   crosswind: 0,           // m/s, positive pushes right
   ambientTempC: 20,       // how fast rotors shed heat
 
-  targetFactor: 1.3,      // target line = flat-out stopping distance × this
+  runSeconds: undefined,  // optional: override the auto-sized run budget
   roadWidth: 20,          // m — leaving it is a fail
   wallOffset: 40,         // m past the line
   tunnel: false,
@@ -142,9 +147,11 @@ Prop types: `post`, `lamp`, `rock`, `tree`, `pylon`.
 - **Make the road visibly distinct from the ground.** Leaving the road is a fail
   condition, so its edges must be unmistakable. The salt flats originally had a
   road almost the same colour as the salt and it was unplayable.
-- **`targetFactor` is the difficulty dial.** 1.22 is tight, 1.35 is generous. It
-  is a multiplier of each vehicle's own stopping distance, so it stays fair
-  across the whole roster automatically.
+- **You do not set the target distance.** `buildCourse` derives it per vehicle
+  *and* per launch speed so that a perfectly judged run spends its time budget —
+  `clamp(2.5 × flat-out braking time, 12 s, 20 s)`. Difficulty comes from grip,
+  wind and road width. Set `runSeconds` only if a scene genuinely needs a
+  different pace.
 - **Crosswind is powerful.** Above about 7 m/s, high-sided vehicles become very
   hard and the superbike — which lifts its rear wheel under braking — can become
   genuinely unwinnable. Check the test matrix after changing it.
@@ -162,9 +169,10 @@ import myCar from '../src/vehicles/specs/my-car.js';
 const VEHICLES = [hyperGt, rallyHatch, superbike, semiTruck, schoolBus, myCar];
 ```
 
-It then automatically joins the full matrix, which asserts for every
-vehicle × scene pairing that a lane-keeping driver stays on the road and that
-the target line is reachable. Run `npm test`.
+It then automatically joins the full matrix, which sweeps the speed ladder and
+asserts for every vehicle × scene × speed that a lane-keeping driver stays on
+the road, that the target line is reachable, that the run lands inside its time
+budget, and that target distance grows with launch speed. Run `npm test`.
 
 If your addition fails those, the pairing is not winnable — fix the numbers
 rather than the test.

@@ -28,7 +28,9 @@
  * @property {{ maxTorque: number, bias: number, abs: boolean, rotorMass: number,
  *              fadeTempC: number, absHz?: number }} brake
  * @property {import('../physics/Tire.js').TireCurve & { compound?: string }} tire
- * @property {number} launchSpeedKph
+ * @property {number} maxLaunchKph top of this vehicle's speed ladder — players
+ *   start at 100 km/h and unlock their way up, so this is a cap, not the speed
+ *   a run begins at
  * @property {object} body procedural mesh recipe, see render/VehicleView.js
  * @property {string|null} [model] optional glTF path that overrides `body`
  */
