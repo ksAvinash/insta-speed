@@ -22,9 +22,9 @@ const audio = new Audio();
 const hud = new Hud();
 
 const settings = loadSettings();
-if (settings.vehicleId || settings.sceneId) {
-  game.select(settings.vehicleId, settings.sceneId);
-}
+game.select(settings.vehicleId, settings.sceneId);
+// Default to the fastest rung already earned, rather than restarting the ladder.
+game.selectFastestUnlocked();
 
 const garage = new Garage(game, () => {
   world.buildVehicle(game.vehicle);
@@ -40,7 +40,9 @@ const result = new Result(
 );
 
 // A sim held in the garage purely so the showcase view has something to draw.
-let showcaseSim = new VehicleSim(game.vehicle, game.scene);
+let showcaseSim = new VehicleSim(game.vehicle, game.scene, {
+  launchSpeedKph: game.launchSpeedKph,
+});
 
 /* ------------------------------------------------------------------ input */
 
@@ -132,7 +134,9 @@ bus.on('statechange', (state) => {
     hud.hide();
     pads.hidden = true;
     audio.silence();
-    showcaseSim = new VehicleSim(game.vehicle, game.scene);
+    showcaseSim = new VehicleSim(game.vehicle, game.scene, {
+      launchSpeedKph: game.launchSpeedKph,
+    });
   }
   if (state === 'countdown') {
     pads.hidden = !input.needsSteerPads;
@@ -187,7 +191,7 @@ const loop = new Loop({
     } else if (game.sim) {
       world.update(game.sim, frameDt);
       if (import.meta.env.DEV) {
-        window.__debug = { camera: renderer.camera, sim: game.sim, chase: world.chase, world };
+        window.__debug = { camera: renderer.camera, sim: game.sim, chase: world.chase, world, game };
       }
       audio.update(game.sim, frameDt);
       if (game.state === 'running') hud.update(game.sim, game.distanceToTarget);
@@ -200,8 +204,8 @@ const loop = new Loop({
 /* ------------------------------------------------------------------ start */
 
 world.buildVehicle(game.vehicle);
+// A placeholder course just so the garage has scenery behind the showcase.
 world.buildScene(game.scene, {
-  ...game.scene,
   target: 800,
   wall: 840,
   runway: 1200,

@@ -50,11 +50,19 @@ export class VehicleSim {
   /**
    * @param {import('../vehicles/registry.js').VehicleSpec} spec
    * @param {import('../scenes/registry.js').SceneDef} scene
+   * @param {{ launchSpeedKph?: number }} [options] launch speed comes from the
+   *   player's progression, so it is per-run rather than a property of the car
    */
-  constructor(spec, scene) {
+  constructor(spec, scene, options = {}) {
     this.spec = spec;
+    this.launchSpeedKph = options.launchSpeedKph ?? spec.maxLaunchKph ?? 400;
     this.setScene(scene);
     this.reset();
+  }
+
+  /** @param {number} kph */
+  setLaunchSpeed(kph) {
+    this.launchSpeedKph = kph;
   }
 
   /** @param {import('../scenes/registry.js').SceneDef} scene */
@@ -96,7 +104,7 @@ export class VehicleSim {
     this.y = 0; // lateral offset from the centreline, m
     this.yaw = 0; // heading relative to the track, rad
     this.yawRate = 0;
-    this.v = (s.launchSpeedKph ?? 400) * KPH_TO_MS;
+    this.v = this.launchSpeedKph * KPH_TO_MS;
     this.vy = 0;
     this.ax = 0;
     this.ay = 0;

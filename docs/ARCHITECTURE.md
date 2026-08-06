@@ -85,36 +85,72 @@ phone produce byte-identical stops from identical inputs.
 
 ## Coordinates and units
 
-Forward is `+Z`, right is `+X`, up is `+Y`. Vehicle geometry also faces `+Z`.
+Forward is `+Z`, up is `+Y`. Vehicle geometry also faces `+Z`.
 
 The sim works in its own track frame: `sim.x` is distance travelled, `sim.y` is
-lateral offset from the centreline, `sim.yaw` is heading relative to the track.
-Mapping to the scene is therefore:
+lateral offset from the centreline (positive to the driver's right), `sim.yaw`
+is heading relative to the track.
+
+**The lateral axis is mirrored on the way out**, via `render/trackFrame.js`.
+Looking along `+Z`, world `+X` lands on the *left* of the screen — the
+handedness flips:
 
 ```js
-mesh.position.set(sim.y, 0, sim.x);
-mesh.rotation.y = sim.yaw;
+import { worldX, worldYaw } from './trackFrame.js';
+mesh.position.set(worldX(sim.y), 0, sim.x);   // worldX(v) === -v
+mesh.rotation.y = worldYaw(sim.yaw);          // worldYaw(v) === -v
 ```
+
+Anything positioning an object from sim state must go through those helpers, or
+steering appears reversed. That bug is genuinely hard to spot, because the
+physics, the HUD and the off-road check all still agree with each other — only
+the picture disagrees. Effects should take wheel positions from
+`VehicleView.wheelWorldPositions()` instead of redoing the transform.
 
 Everything in the sim is SI — metres, kilograms, seconds, newtons, radians. Only
 the HUD converts to km/h and degrees.
 
 ## Course layout
 
-`buildCourse(spec, scene)` runs a full-brake reference simulation to find the
-vehicle's flat-out stopping distance, then places the target line beyond it:
+`buildCourse(spec, scene, launchSpeedKph)` places the target line so that a
+perfectly judged run — coast at speed, then brake flat out at the last possible
+moment — takes a set number of seconds. It works from two reference
+simulations rather than a search, so it is cheap enough to call on every garage
+interaction (the whole 156-pairing matrix builds in well under a second).
 
-```
-target = ideal × scene.targetFactor     (typically 1.22–1.35)
-wall   = target + scene.wallOffset
-runway = wall + 300
-```
+1. A flat-out stop is sampled into a table of "distance and time still needed
+   from this speed".
+2. The run budget is `clamp(2.5 × flat-out braking time, 12 s, 20 s)`.
+3. The coasting profile is walked until braking from that point would spend the
+   budget. That distance is the target.
+4. The target is floored at `1.2 × ideal`, so there is always room to absorb
+   crosswind and the cost of steering.
 
-This is the central design decision. Because the line sits past the flat-out
-stop, braking at `t=0` always leaves you short — the player must judge a coast
-phase. Deriving it per vehicle keeps a 205 kg superbike and a 15-tonne truck
-equally challenged despite stopping distances differing by an order of
-magnitude.
+Because the line sits past the flat-out stop, braking at `t=0` always leaves you
+short — the player must judge the coast. Deriving everything per vehicle *and*
+per launch speed keeps a 100 km/h opening run and a 600 km/h final run both
+meaningful, despite stopping distances differing by two orders of magnitude.
+
+Reference runs are made in **still air**. Where the line goes is a purely
+longitudinal question, and a laterally unstable vehicle would otherwise drag it
+around — the superbike spins itself in a crosswind once braking lifts its rear
+wheel, which made the target move *closer* as launch speed rose.
+
+### Why the budget scales
+
+A flat 20 s for everything plays badly at the bottom of the ladder: stopping
+from 100 km/h takes ~2.5 s, so the rest is spent holding a straight line waiting
+for something to happen. Scaling with the length of the stop makes early runs
+brisk (12 s) and the top of every ladder land on the full 20 s.
+
+## Speed progression
+
+Every vehicle has a ladder (`core/speeds.js`): 100 km/h, +50 per rung, with the
+vehicle's own top speed as the final rung. A clean stop unlocks the next one,
+stored per vehicle in `localStorage`. Locked rungs are shown in the garage
+rather than hidden, so the player can see the climb ahead.
+
+`spec.maxLaunchKph` is therefore a *cap*, not the speed you launch at.
 
 ## Rendering choices worth knowing
 

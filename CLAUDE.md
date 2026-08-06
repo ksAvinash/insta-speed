@@ -28,7 +28,7 @@ architecture.
 ```bash
 npm run dev        # https://localhost:5173 (HTTPS is deliberate, see below)
 npm run dev:mobile # same, bound to the LAN for phone testing
-npm test           # 52 tests, ~1s
+npm test           # 136 tests, ~3s
 npm run build      # static bundle into dist/
 ```
 
@@ -36,11 +36,11 @@ npm run build      # static bundle into dist/
 
 ```
 src/
-  core/     Game.js (state machine)  Loop.js (fixed step)  course.js  Bus.js  Storage.js
+  core/     Game.js (state machine)  Loop.js (fixed step)  course.js  speeds.js  Bus.js  Storage.js
   physics/  VehicleSim.js  Tire.js  Surface.js  constants.js
   vehicles/ registry.js  specs/*.js     <- one data file per vehicle
   scenes/   registry.js  defs/*.js      <- one data file per scene
-  render/   Renderer  World  Environment  RoadBuilder  Props  VehicleView  Chase  textures
+  render/   Renderer  World  Environment  RoadBuilder  Props  VehicleView  Chase  trackFrame  textures
   input/    InputManager  GyroSource  KeyboardSource  TouchSource
   fx/       TireSmoke  SpeedLines  Audio
   ui/       garage  hud  result  format  styles.css
@@ -48,14 +48,20 @@ src/
 
 `docs/` holds deeper references: [ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [PHYSICS.md](docs/PHYSICS.md), [ADDING_CONTENT.md](docs/ADDING_CONTENT.md),
-[PLAN.md](docs/PLAN.md).
+[PLAN.md](docs/PLAN.md), [DEVLOG.md](docs/DEVLOG.md).
 
 ## Conventions that matter
 
-**World axes.** Forward is `+Z`, right is `+X`, up is `+Y`. A vehicle's own
-geometry also faces `+Z` (headlights at positive Z). Mapping from sim to scene
-is `position.set(sim.y, 0, sim.x)` and `rotation.y = sim.yaw`. `sim.x` is
-distance travelled; `sim.y` is lateral offset from the centreline.
+**World axes.** Forward is `+Z`, up is `+Y`. Vehicle geometry also faces `+Z`.
+`sim.x` is distance travelled; `sim.y` is lateral offset from the centreline,
+positive to the driver's right.
+
+**The lateral axis is mirrored on the way out** — looking along `+Z`, world
+`+X` is on the *left* of the screen. Always position objects via
+`render/trackFrame.js` (`worldX`, `worldYaw`). Skipping it reverses steering
+while the physics, HUD and off-road check all still agree with each other.
+Effects should read `VehicleView.wheelWorldPositions()` rather than redoing the
+transform themselves.
 
 **Units are SI everywhere in the sim** — metres, kilograms, seconds, newtons,
 radians. Only the UI converts to km/h.
@@ -98,6 +104,14 @@ arrow-function class fields instead (see `Loop.js`, `GyroSource.js`,
    chase rig boosts away from. Reading the base back off `camera.fov` compounds
    the boost run over run.
 
+6. **The render frame is mirrored.** See the axes note above. Every fix for
+   "steering goes the wrong way" that negates the *input* or the *physics* is
+   wrong — the mirror belongs in `render/trackFrame.js` alone.
+
+7. **Course reference runs use still air.** `buildCourse` strips the crosswind
+   before measuring, or an unstable vehicle spins during the measurement and
+   drags the target line with it.
+
 ## Tuned vs. derived values
 
 Most of the model is derived from real vehicle dynamics. Three constants are
@@ -118,9 +132,10 @@ as game-design knobs, not physics:
 1,500 kg car at μ≈1.0 stops from 100 km/h in **39–43 m**. If a physics change
 moves that number outside the window, the change is wrong — not the test.
 
-`test/course.test.js` runs all 5 vehicles against all 4 scenes and asserts each
-pairing is winnable: a lane-keeping driver stays on the road, and the target
-line is reachable. **Any new vehicle or scene automatically joins this matrix**
+`test/course.test.js` runs all 5 vehicles against all 4 scenes across the speed
+ladder and asserts each pairing is winnable: a lane-keeping driver stays on the
+road, and the target line is reachable. It also checks run duration lands inside
+the budget and that target distance grows monotonically with launch speed. **Any new vehicle or scene automatically joins this matrix**
 once added to the import list at the top of the file. Add it there.
 
 Note the deliberate choice of a *lane-keeping* driver rather than a passive one.

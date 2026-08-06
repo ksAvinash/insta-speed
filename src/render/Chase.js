@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp } from '../physics/constants.js';
+import { worldX, worldYaw } from './trackFrame.js';
 
 /**
  * Chase camera.
@@ -51,7 +52,8 @@ export class Chase {
     const dist = this.distance * (1 + speedRatio * 0.16);
     const height = this.height * (1 - speedRatio * 0.12);
 
-    this.yawLag += (sim.yaw - this.yawLag) * Math.min(1, dt * 6);
+    const heading = worldYaw(sim.yaw);
+    this.yawLag += (heading - this.yawLag) * Math.min(1, dt * 6);
     const fx = Math.sin(this.yawLag);
     const fz = Math.cos(this.yawLag);
 
@@ -66,7 +68,7 @@ export class Chase {
     // target line readable in time to actually react to it. Kept modest, since
     // too much lead pushes the car into the distance.
     const lead = 7 + sim.v * 0.16;
-    this.target.set(Math.sin(sim.yaw) * lead, 0.75, Math.cos(sim.yaw) * lead);
+    this.target.set(Math.sin(heading) * lead, 0.75, Math.cos(heading) * lead);
 
     if (this.reset) {
       this.offset.copy(this.desired);
@@ -79,7 +81,7 @@ export class Chase {
     }
 
     this.lookAt.set(
-      sim.y + this.lookOffset.x,
+      worldX(sim.y) + this.lookOffset.x,
       this.lookOffset.y,
       sim.x + this.lookOffset.z,
     );
@@ -90,7 +92,11 @@ export class Chase {
     const amp = this.shake * 0.16;
     const t = performance.now() * 0.001;
 
-    this.camera.position.set(sim.y + this.offset.x, this.offset.y, sim.x + this.offset.z);
+    this.camera.position.set(
+      worldX(sim.y) + this.offset.x,
+      this.offset.y,
+      sim.x + this.offset.z,
+    );
     this.camera.position.x += Math.sin(t * 47) * amp;
     this.camera.position.y += Math.sin(t * 61) * amp * 0.7;
     this.camera.lookAt(this.lookAt);

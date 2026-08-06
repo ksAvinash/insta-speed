@@ -100,6 +100,48 @@ took the whole app down.
 **Fix.** Declare them as arrow-function class fields instead, which also keeps
 the listener reference stable so `removeEventListener` works.
 
+## 6. Steering was mirrored: left went right
+
+**Symptom.** Reported from play: pressing left steered right and vice versa.
+
+**Diagnosis.** Worth recording how this was *not* found. The first probe held
+the right arrow and compared the car's sim lateral offset against its projected
+screen position — and reported "consistent", because the chase camera keeps the
+car centred, so its screen position is always ~0 no matter what it does.
+
+The second probe projected a *fixed world landmark* instead. With the camera at
+lateral +13, the centreline (lateral 0) projected further screen-**right** than
+a point at lateral +10. So sim `+y` renders on the left, while pressing right
+drives toward `+y`.
+
+The cause is handedness. The track runs along `+Z`; with the camera looking that
+way, world `+X` falls on the left of the screen. three.js's default camera looks
+down `-Z`, which is the orientation that makes `+X` screen-right.
+
+**Fix.** `render/trackFrame.js` mirrors the lateral axis in one documented
+place, applied by `VehicleView` and `Chase`. `TireSmoke` was rewritten to read
+wheel positions off the scene graph rather than recomputing the transform, which
+removes the possibility of it drifting out of sync.
+
+**Why it survived the first build.** Nothing else disagreed. The physics, the
+HUD distance, the off-road check and the scoring all shared the sim's frame and
+were self-consistent — only the picture was flipped, and the salt flats had zero
+crosswind so nothing drifted sideways on its own to make it obvious.
+
+## 7. The target line moved *closer* as launch speed rose
+
+**Symptom.** While adding the speed ladder, a table of target distances showed
+the superbike on the wet bridge going 200 km/h → 673 m, 250 → 540 m, 300 → 446 m.
+
+**Diagnosis.** `buildCourse` measures a reference flat-out stop. On the bridge
+the bike lifts its rear wheel under braking, loses all lateral grip, and the
+7 m/s crosswind spins it — 120° of yaw and up to 90 m off the road. A spinning
+car covers less *forward* distance, so the harder it span the shorter the
+measured stop appeared.
+
+**Fix.** Reference runs are made in still air. Where the line goes is a purely
+longitudinal question and should not depend on a vehicle's lateral stability.
+
 ## Smaller ones
 
 - **Base FOV ratcheted between runs.** `Chase.configure()` captured `baseFov`
@@ -115,6 +157,14 @@ the listener reference stable so `removeEventListener` works.
 - **`buildCourse` was unusable from tests.** It lived in `Game.js`, which imports
   the registries, which use Vite's `import.meta.glob`. Extracted to
   `core/course.js` with no registry imports.
+- **A flat 20 s run budget padded the early ladder with dead time.** Stopping
+  from 100 km/h takes ~2.5 s, so a 20 s course meant 18 s of holding a straight
+  line before anything happened. The budget now scales with the length of the
+  stop, `clamp(2.5 × brake time, 12 s, 20 s)`.
+- **Courses that could not fit the budget had zero margin.** When braking alone
+  already exceeded the time budget, the target collapsed onto the theoretical
+  minimum stopping distance, leaving nothing to absorb crosswind or the cost of
+  steering — making them impossible. Floored at `1.2 × ideal`.
 
 ## What the test matrix caught
 

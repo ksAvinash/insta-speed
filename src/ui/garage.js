@@ -17,6 +17,8 @@ export class Garage {
     this.sceneList = document.getElementById('scene-list');
     this.vehicleStats = document.getElementById('vehicle-stats');
     this.sceneStats = document.getElementById('scene-stats');
+    this.speedList = document.getElementById('speed-list');
+    this.speedHint = document.getElementById('speed-hint');
     this.bestLine = document.getElementById('best-line');
 
     this.#buildChips(this.vehicleList, VEHICLES, (v) => v.class, (id) => {
@@ -52,6 +54,43 @@ export class Garage {
     }
   }
 
+  /**
+   * The speed ladder. Locked rungs are shown rather than hidden, so the player
+   * can see what they are working toward.
+   */
+  #renderSpeeds() {
+    const { game } = this;
+    const ladder = game.ladder;
+    const unlocked = game.unlockedSpeed;
+    const top = ladder[ladder.length - 1];
+
+    this.speedList.innerHTML = '';
+    for (const kph of ladder) {
+      const locked = kph > unlocked;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip chip--speed';
+      chip.dataset.id = String(kph);
+      chip.disabled = locked;
+      chip.setAttribute('aria-pressed', String(kph === game.launchSpeedKph));
+      if (locked) chip.setAttribute('aria-label', `${kph} km/h, locked`);
+      chip.innerHTML = locked ? `🔒 ${kph}` : `${kph}<small>km/h</small>`;
+      chip.addEventListener('click', () => {
+        game.selectSpeed(kph);
+        this.refresh();
+        this.onChange?.();
+      });
+      this.speedList.append(chip);
+    }
+
+    this.speedHint.textContent =
+      unlocked >= top
+        ? `Every speed unlocked on the ${game.vehicle.name}. Top speed is ${top} km/h.`
+        : `Stop cleanly to unlock ${
+            ladder[ladder.indexOf(unlocked) + 1] ?? top
+          } km/h. Ladder runs to ${top} km/h.`;
+  }
+
   refresh() {
     const { game } = this;
     const spec = game.vehicle;
@@ -59,14 +98,15 @@ export class Garage {
 
     this.#syncPressed(this.vehicleList, spec.id);
     this.#syncPressed(this.sceneList, scene.id);
+    this.#renderSpeeds();
 
-    const course = buildCourse(spec, scene);
+    const course = buildCourse(spec, scene, game.launchSpeedKph);
     this.course = course;
 
     renderStats(
       this.vehicleStats,
       {
-        'Launch speed': `${int(spec.launchSpeedKph)} km/h`,
+        'Top speed': `${int(spec.maxLaunchKph)} km/h`,
         Mass: kg(spec.mass),
         Brakes: spec.brake.abs ? 'ABS' : 'No ABS',
         Downforce: spec.liftCoefficient < 0 ? 'Yes' : 'None',
@@ -87,9 +127,14 @@ export class Garage {
     );
 
     const best = getBest(spec.id, scene.id);
+    const setup = `At ${int(game.launchSpeedKph)} km/h the line is ${metres(
+      course.target,
+    )} away — brake flat out from the launch and you stop in ${metres(
+      course.ideal,
+    )}, so coast about ${course.coastSeconds.toFixed(1)} s first.`;
     this.bestLine.innerHTML = best
-      ? `Personal best on this pairing: <b>${int(best.score)}</b> — stopped ${best.errorM.toFixed(2)} m from the line.`
-      : `Flat-out from the launch you would stop in ${metres(course.ideal)}. The line is at ${metres(course.target)}, so you have to wait before you brake.`;
+      ? `${setup} <b>Best here: ${int(best.score)}</b> (${best.errorM.toFixed(2)} m off).`
+      : setup;
   }
 
   show() {

@@ -1,7 +1,7 @@
 # insta-speed
 
-A browser braking game. You are launched instantly at 600 km/h and have exactly
-one job: stop on the line.
+A browser braking game. You are launched instantly at speed and have exactly one
+job: stop on the line. Start at 100 km/h and work up to 600.
 
 ```
 [LAUNCH] ============================>  |TARGET|  ##WALL##
@@ -46,8 +46,14 @@ permission is refused or there is no sensor, on-screen arrows appear instead.
 
 ## How it works
 
+You start every vehicle at 100 km/h and unlock the next rung — 50 km/h faster —
+by bringing the previous one to a clean stop, up to the vehicle's top speed.
+
 The target line sits beyond the distance the car needs to stop flat out, so
 braking at `t=0` leaves you well short. The whole game is judging the coast.
+Each course is sized so a perfectly judged run takes 12-20 seconds, scaling
+with the length of the stop, so the ladder escalates instead of padding early
+runs with dead time.
 
 Physics runs at a fixed 120 Hz, independent of framerate, so the same inputs
 always produce the same stop.
@@ -84,7 +90,7 @@ export default {
   liftCoefficient: -0.3,    // negative is downforce
   brake: { maxTorque: 7000, bias: 0.65, abs: true, rotorMass: 15, fadeTempC: 600 },
   tire: { B: 10, C: 1.9, D: 1.2, E: 0.97 },
-  launchSpeedKph: 450,
+  maxLaunchKph: 450,      // top of this vehicle's speed ladder
   body: { parts: [...], wheels: {...} },  // primitives, see existing specs
   model: null,              // or 'models/my-car.glb' to use real art instead
 };
@@ -102,9 +108,9 @@ crosswind, colours and instanced roadside props.
 `npm test` covers two things. `test/physics.test.js` checks the model against
 reality — most importantly that a 1,500 kg car with μ≈1.0 stops from 100 km/h in
 39–43 m, the real-world envelope for a modern performance car. `test/course.test.js`
-runs every vehicle against every scene and asserts each pairing is actually
-winnable: a lane-keeping driver stays on the road, and the target line is
-reachable.
+runs every vehicle against every scene across the speed ladder and asserts each
+pairing is actually winnable: a lane-keeping driver stays on the road, and the
+target line is reachable.
 
 ## Deploying
 

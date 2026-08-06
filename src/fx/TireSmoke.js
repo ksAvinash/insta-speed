@@ -110,28 +110,20 @@ export class TireSmoke {
   /**
    * @param {import('../physics/VehicleSim.js').VehicleSim} sim
    * @param {number} dt
+   * @param {import('three').Vector3[]} contactPoints world-space wheel contact
+   *   patches, taken from the scene graph rather than recomputed from sim state
    */
-  update(sim, dt) {
+  update(sim, dt, contactPoints) {
     const intensity = sim.slipIntensity;
 
-    if (intensity > 0.02 && sim.v > 3) {
+    if (intensity > 0.02 && sim.v > 3 && contactPoints?.length) {
       // Emission is rate-based so it does not thin out at high framerates.
       this.emitAccumulator += intensity * 140 * dt;
-      const wheels = sim.spec.body.wheels;
-      const cosY = Math.cos(sim.yaw);
-      const sinY = Math.sin(sim.yaw);
-      const half = wheels.track / 2;
 
       while (this.emitAccumulator >= 1) {
         this.emitAccumulator -= 1;
-        const axleZ = Math.random() < 0.5 ? wheels.front : wheels.rear;
-        const side = half > 0 ? (Math.random() < 0.5 ? -half : half) : 0;
-        this.#spawn(
-          sim.y + side * cosY + axleZ * sinY,
-          0.12,
-          sim.x + axleZ * cosY - side * sinY,
-          sim.v,
-        );
+        const p = contactPoints[(Math.random() * contactPoints.length) | 0];
+        this.#spawn(p.x, p.y, p.z, sim.v);
       }
     } else {
       this.emitAccumulator = 0;

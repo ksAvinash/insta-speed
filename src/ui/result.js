@@ -17,6 +17,7 @@ export class Result {
     this.detail = document.getElementById('result-detail');
     this.stats = document.getElementById('result-stats');
     this.record = document.getElementById('result-record');
+    this.unlock = document.getElementById('result-unlock');
 
     document.getElementById('retry').addEventListener('click', onRetry);
     document.getElementById('to-garage').addEventListener('click', onGarage);
@@ -31,12 +32,22 @@ export class Result {
 
     renderStats(this.stats, {
       Score: int(result.score),
+      'Launch speed': `${int(result.launchSpeedKph)} km/h`,
       'Stopped at': metres(result.stoppedAt),
       'Target line': metres(result.target),
-      'Time to stop': seconds(result.time),
+      'Run time': seconds(result.time),
       'Peak rotor': `${Math.round(result.peakRotorC)}°C`,
-      Accuracy: `${Math.round(result.accuracy * 100)}%`,
     });
+
+    if (result.unlockedKph) {
+      this.unlock.textContent = `${result.unlockedKph} km/h unlocked`;
+      this.unlock.hidden = false;
+    } else if (result.clean && result.isTopSpeed) {
+      this.unlock.textContent = `Top speed cleared — ${int(result.launchSpeedKph)} km/h`;
+      this.unlock.hidden = false;
+    } else {
+      this.unlock.hidden = true;
+    }
 
     this.record.hidden = !result.isRecord;
     this.root.hidden = false;

@@ -19,7 +19,7 @@ const referenceCar = {
   liftCoefficient: 0,
   brake: { maxTorque: 9000, bias: 0.65, abs: true, rotorMass: 9, fadeTempC: 600, absHz: 15 },
   tire: { B: 10, C: 1.9, D: 1.0, E: 0.97 },
-  launchSpeedKph: 100,
+  maxLaunchKph: 100,
 };
 
 const flatTrack = {
@@ -82,7 +82,7 @@ test('rotors heat up under braking and fade cuts pad friction', () => {
 });
 
 test('downforce shortens the stop at high speed', () => {
-  const fast = { ...referenceCar, launchSpeedKph: 300 };
+  const fast = { ...referenceCar, maxLaunchKph: 300 };
   const noWing = brakeToStop(fast, flatTrack).distance;
   const winged = brakeToStop({ ...fast, liftCoefficient: -1.2 }, flatTrack).distance;
   assert.ok(winged < noWing, `downforce ${winged.toFixed(1)}m should beat ${noWing.toFixed(1)}m`);
@@ -95,7 +95,7 @@ test('the sim is deterministic for an identical input sequence', () => {
   }));
 
   const run = () => {
-    const sim = new VehicleSim({ ...referenceCar, launchSpeedKph: 600 }, flatTrack);
+    const sim = new VehicleSim({ ...referenceCar, maxLaunchKph: 600 }, flatTrack);
     for (const input of inputs) sim.step(PHYSICS_DT, input);
     return { x: sim.x, y: sim.y, yaw: sim.yaw, v: sim.v };
   };
@@ -122,7 +122,7 @@ test('friction circle leaves no lateral grip when braking at the limit', () => {
 });
 
 test('a 600 km/h launch is survivable but takes serious road', () => {
-  const { distance, sim } = brakeToStop({ ...referenceCar, launchSpeedKph: 600 }, flatTrack);
+  const { distance, sim } = brakeToStop({ ...referenceCar, maxLaunchKph: 600 }, flatTrack);
   assert.ok(sim.stopped, 'should reach a stop');
   assert.ok(distance > 800, `expected a long stop, got ${distance.toFixed(0)} m`);
   assert.ok(distance < 4000, `should fit on a runway, got ${distance.toFixed(0)} m`);

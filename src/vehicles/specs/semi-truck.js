@@ -27,7 +27,7 @@ export default {
   brake: { maxTorque: 78000, bias: 0.42, abs: false, rotorMass: 84, fadeTempC: 460 },
   tire: { compound: 'truck', B: 8, C: 1.75, D: 0.85, E: 0.98 },
 
-  launchSpeedKph: 320,
+  maxLaunchKph: 320,
   model: null,
   body: {
     parts: [

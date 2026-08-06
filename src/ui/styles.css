@@ -317,12 +317,20 @@ body[data-state='countdown'] #brake-surface {
      so the showcase vehicle is actually visible. */
   background: linear-gradient(
     180deg,
-    rgba(6, 8, 12, 0.94) 0%,
-    rgba(6, 8, 12, 0.86) 30%,
-    rgba(6, 8, 12, 0.18) 52%,
-    rgba(6, 8, 12, 0.6) 76%,
-    rgba(6, 8, 12, 0.95) 100%
+    rgba(6, 8, 12, 0.95) 0%,
+    rgba(6, 8, 12, 0.9) 36%,
+    rgba(6, 8, 12, 0.26) 58%,
+    rgba(6, 8, 12, 0.66) 80%,
+    rgba(6, 8, 12, 0.96) 100%
   );
+}
+
+/* The pickers sit over the showcase vehicle, so their labels need to survive
+   whatever colour happens to be behind them. */
+.picker h2,
+.hint,
+.best {
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.85);
 }
 
 #result {
@@ -406,6 +414,38 @@ body[data-state='countdown'] #brake-surface {
   background: rgba(77, 255, 146, 0.14);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.picker--wide {
+  grid-column: 1 / -1;
+}
+
+.chips--speed .chip {
+  min-width: 62px;
+  text-align: center;
+  padding: 8px 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chip:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chip:disabled:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
+.hint--speed {
+  margin-top: 10px;
+}
+
+.record--unlock {
+  background: rgba(245, 201, 58, 0.14);
+  border-color: rgba(245, 201, 58, 0.45);
+  color: var(--warn);
 }
 
 .chip small {

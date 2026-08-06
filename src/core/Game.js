@@ -3,7 +3,8 @@ import { clamp } from '../physics/constants.js';
 import { getVehicle, DEFAULT_VEHICLE_ID } from '../vehicles/registry.js';
 import { getScene, DEFAULT_SCENE_ID } from '../scenes/registry.js';
 import { buildCourse } from './course.js';
-import { recordBest } from './Storage.js';
+import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH } from './speeds.js';
+import { recordBest, getUnlockedSpeed, unlockSpeed } from './Storage.js';
 import { bus } from './Bus.js';
 
 export { buildCourse, idealStoppingDistance } from './course.js';
@@ -27,6 +28,7 @@ export class Game {
     this.state = 'garage';
     this.vehicleId = DEFAULT_VEHICLE_ID;
     this.sceneId = DEFAULT_SCENE_ID;
+    this.launchSpeedKph = BASE_SPEED_KPH;
     this.countdown = 0;
     /** @type {VehicleSim|null} */
     this.sim = null;
@@ -49,18 +51,42 @@ export class Game {
     return this.course.target - this.sim.x;
   }
 
+  /** Ladder rungs for the current vehicle. */
+  get ladder() {
+    return speedLadder(this.vehicle);
+  }
+
+  /** Fastest rung the player has earned on the current vehicle. */
+  get unlockedSpeed() {
+    return getUnlockedSpeed(this.vehicleId, this.ladder[0]);
+  }
+
   select(vehicleId, sceneId) {
     if (vehicleId) this.vehicleId = vehicleId;
     if (sceneId) this.sceneId = sceneId;
+    // Each vehicle carries its own progression, so the selected speed has to be
+    // re-snapped whenever the vehicle changes.
+    this.launchSpeedKph = clampToLadder(this.vehicle, this.launchSpeedKph, this.unlockedSpeed);
     bus.emit('selection', { vehicleId: this.vehicleId, sceneId: this.sceneId });
+  }
+
+  /** @param {number} kph */
+  selectSpeed(kph) {
+    this.launchSpeedKph = clampToLadder(this.vehicle, kph, this.unlockedSpeed);
+    bus.emit('selection', { vehicleId: this.vehicleId, sceneId: this.sceneId });
+  }
+
+  /** Jump straight to the fastest rung unlocked so far. */
+  selectFastestUnlocked() {
+    this.selectSpeed(this.unlockedSpeed);
   }
 
   /** Build the course and drop into the countdown. */
   launch() {
     const spec = this.vehicle;
     const scene = this.scene;
-    this.course = buildCourse(spec, scene);
-    this.sim = new VehicleSim(spec, scene);
+    this.course = buildCourse(spec, scene, this.launchSpeedKph);
+    this.sim = new VehicleSim(spec, scene, { launchSpeedKph: this.launchSpeedKph });
     this.sim.v = 0; // held at rest until the countdown fires
     this.result = null;
     this.countdown = COUNTDOWN_SECONDS;
@@ -138,6 +164,10 @@ export class Game {
 
     const isRecord = clean && recordBest(this.vehicleId, this.sceneId, score, error);
 
+    // A clean stop earns the next rung on this vehicle's speed ladder.
+    const next = clean ? nextSpeed(this.vehicle, this.launchSpeedKph) : null;
+    const unlockedKph = next && unlockSpeed(this.vehicleId, next) ? next : null;
+
     this.result = {
       ...partial,
       clean,
@@ -147,6 +177,9 @@ export class Game {
       grade: rating.grade,
       label: rating.label,
       isRecord,
+      unlockedKph,
+      launchSpeedKph: this.launchSpeedKph,
+      isTopSpeed: next === null,
       stoppedAt: sim.x,
       target: course.target,
       time: sim.elapsed,

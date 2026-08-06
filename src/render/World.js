@@ -66,7 +66,7 @@ export class World {
   update(sim, dt) {
     this.vehicle.update(sim, dt);
     this.chase.update(sim, dt);
-    this.smoke.update(sim, dt);
+    this.smoke.update(sim, dt, this.vehicle.wheelWorldPositions());
     this.speedLines.update(sim, this.renderer.camera, dt);
     this.environment.follow(sim.x);
   }

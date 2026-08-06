@@ -2,6 +2,7 @@
 
 const KEY = 'insta-speed:bests:v1';
 const SETTINGS_KEY = 'insta-speed:settings:v1';
+const PROGRESS_KEY = 'insta-speed:progress:v1';
 
 /** @returns {Record<string, { score: number, errorM: number, date: number }>} */
 function readAll() {
@@ -35,6 +36,45 @@ export function recordBest(vehicleId, sceneId, score, errorM) {
   }
   return true;
 }
+
+/* ------------------------------- progression ------------------------------ */
+
+/** @returns {Record<string, number>} vehicle id → fastest speed unlocked */
+function readProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Fastest launch speed the player has earned on this vehicle.
+ * @param {string} vehicleId
+ * @param {number} base slowest rung on the ladder
+ */
+export function getUnlockedSpeed(vehicleId, base) {
+  const stored = readProgress()[vehicleId];
+  return typeof stored === 'number' ? Math.max(stored, base) : base;
+}
+
+/**
+ * Records a newly earned speed.
+ * @returns {boolean} true if this actually unlocked something new
+ */
+export function unlockSpeed(vehicleId, kph) {
+  const all = readProgress();
+  if ((all[vehicleId] ?? 0) >= kph) return false;
+  all[vehicleId] = kph;
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(all));
+  } catch {
+    /* private browsing — progress just won't persist */
+  }
+  return true;
+}
+
+/* -------------------------------- settings -------------------------------- */
 
 export function loadSettings() {
   try {

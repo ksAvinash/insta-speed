@@ -15,7 +15,6 @@ export default {
   crosswind: 7,
   ambientTempC: 9,
 
-  targetFactor: 1.3,
   roadWidth: 19,
   wallOffset: 40,
 

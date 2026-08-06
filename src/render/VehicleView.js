@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp } from '../physics/constants.js';
+import { worldX, worldYaw } from './trackFrame.js';
 
 /**
  * Builds the visible vehicle.
@@ -154,21 +155,22 @@ export class VehicleView {
    * @param {number} dt
    */
   update(sim, dt) {
-    this.root.position.set(sim.y, 0, sim.x);
-    this.root.rotation.y = sim.yaw;
+    this.root.position.set(worldX(sim.y), 0, sim.x);
+    this.root.rotation.y = worldYaw(sim.yaw);
 
     // Dive under braking and squat under the (brief) launch, capped so heavy
     // vehicles do not look like they are folding in half.
     const dive = clamp(-sim.ax / 22, -0.05, 0.09);
     this.chassis.rotation.x = dive;
     this.chassis.position.y = -dive * 0.35;
-    this.chassis.rotation.z = clamp(-sim.ay / 40, -0.06, 0.06);
+    // Body roll leans away from the lateral acceleration, in the mirrored frame.
+    this.chassis.rotation.z = clamp(sim.ay / 40, -0.06, 0.06);
 
     const r = this.spec.wheelRadius;
     for (const { mesh, steers } of this.wheels) {
       const omega = steers ? sim.omega.front : sim.omega.rear;
       mesh.rotation.x += omega * dt;
-      mesh.rotation.y = steers ? sim.steerAngle : 0;
+      mesh.rotation.y = steers ? worldYaw(sim.steerAngle) : 0;
       mesh.position.y = r;
     }
 
@@ -177,6 +179,27 @@ export class VehicleView {
       light.material.color.setRGB(0.22 + glow * 0.78, 0.05 + glow * 0.06, 0.05 + glow * 0.06);
       light.scale.setScalar(1 + glow * 0.25);
     }
+  }
+
+  /**
+   * World-space contact-patch positions, one per wheel.
+   *
+   * Read straight off the wheel hubs, which the scene graph has already placed
+   * correctly. Effects that need these must not recompute them from sim state —
+   * duplicating the track-to-world transform is how they end up mirrored.
+   * @returns {THREE.Vector3[]}
+   */
+  wheelWorldPositions() {
+    this._wheelPoints ??= [];
+    while (this._wheelPoints.length < this.wheels.length) {
+      this._wheelPoints.push(new THREE.Vector3());
+    }
+    this._wheelPoints.length = this.wheels.length;
+    for (let i = 0; i < this.wheels.length; i++) {
+      this.wheels[i].mesh.getWorldPosition(this._wheelPoints[i]);
+      this._wheelPoints[i].y = 0.12; // contact patch, not hub centre
+    }
+    return this._wheelPoints;
   }
 
   clear() {
