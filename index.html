@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0d12" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="description"
+      content="Launched instantly at 600 km/h. Stop on the line. A browser braking game with real vehicle physics."
+    />
+    <title>insta-speed</title>
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- Brake surface: a hold anywhere that is not a steering pad. -->
+    <div id="brake-surface" aria-hidden="true"></div>
+
+    <div id="pads" hidden>
+      <button id="pad-left" type="button" aria-label="Steer left">‹</button>
+      <button id="pad-right" type="button" aria-label="Steer right">›</button>
+    </div>
+
+    <!-- ===================== HUD ===================== -->
+    <div id="hud" hidden>
+      <div class="hud-top">
+        <div class="readout readout--speed">
+          <span id="hud-speed">0</span><em id="hud-speed-unit">km/h</em>
+        </div>
+        <div class="readout readout--distance">
+          <span id="hud-distance">0</span><em>m to line</em>
+        </div>
+      </div>
+
+      <div class="hud-bars">
+        <div class="bar" title="Brake pressure">
+          <label>BRAKE</label>
+          <div class="bar-track"><div id="bar-brake" class="bar-fill bar-fill--brake"></div></div>
+        </div>
+        <div class="bar" title="Deceleration">
+          <label>G</label>
+          <div class="bar-track"><div id="bar-g" class="bar-fill bar-fill--g"></div></div>
+          <output id="hud-g">0.0</output>
+        </div>
+        <div class="bar" title="Brake rotor temperature">
+          <label>ROTOR</label>
+          <div class="bar-track"><div id="bar-temp" class="bar-fill bar-fill--temp"></div></div>
+          <output id="hud-temp">20°</output>
+        </div>
+      </div>
+
+      <div class="hud-flags">
+        <span id="flag-abs" class="flag flag--abs">ABS</span>
+        <span id="flag-lock" class="flag flag--lock">LOCKED</span>
+        <span id="flag-fade" class="flag flag--fade">FADE</span>
+      </div>
+
+      <div id="hud-hint" class="hud-hint"></div>
+    </div>
+
+    <!-- ===================== Countdown ===================== -->
+    <div id="countdown" hidden><span id="countdown-value"></span></div>
+
+    <!-- ===================== Garage ===================== -->
+    <section id="garage">
+      <header class="garage-head">
+        <h1>insta<span>·</span>speed</h1>
+        <p class="tagline">
+          Launched instantly at full speed. One job: stop on the line.
+        </p>
+      </header>
+
+      <div class="garage-body">
+        <div class="picker">
+          <h2>Vehicle</h2>
+          <div id="vehicle-list" class="chips"></div>
+          <dl id="vehicle-stats" class="stats"></dl>
+        </div>
+
+        <div class="picker">
+          <h2>Location</h2>
+          <div id="scene-list" class="chips"></div>
+          <dl id="scene-stats" class="stats"></dl>
+        </div>
+      </div>
+
+      <div class="garage-foot">
+        <div id="best-line" class="best"></div>
+        <div class="actions">
+          <button id="tilt-toggle" type="button" class="btn btn--ghost" hidden>
+            Enable tilt steering
+          </button>
+          <button id="mute-toggle" type="button" class="btn btn--ghost" aria-pressed="false">
+            Sound on
+          </button>
+          <button id="start" type="button" class="btn btn--primary">Launch</button>
+        </div>
+        <p id="controls-hint" class="hint"></p>
+      </div>
+    </section>
+
+    <!-- ===================== Result ===================== -->
+    <section id="result" hidden>
+      <div class="result-card">
+        <div id="result-grade" class="grade">S</div>
+        <h2 id="result-label">Surgical</h2>
+        <p id="result-detail" class="result-detail"></p>
+        <dl id="result-stats" class="stats stats--result"></dl>
+        <div id="result-record" class="record" hidden>New personal best</div>
+        <div class="actions">
+          <button id="retry" type="button" class="btn btn--primary">Run it again</button>
+          <button id="to-garage" type="button" class="btn btn--ghost">Garage</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
