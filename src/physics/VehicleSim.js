@@ -151,6 +151,16 @@ export class VehicleSim {
   }
 
   /**
+   * The same measure for one axle, so effects that live at a contact patch —
+   * skid marks especially — can mark the axle that is actually sliding.
+   * @param {'front'|'rear'} axle
+   */
+  axleSlipIntensity(axle) {
+    const s = Math.abs(this.slip[axle]);
+    return clamp((s - this.peak.slip) / (1 - this.peak.slip), 0, 1);
+  }
+
+  /**
    * Brake pad friction falls off once the rotor cooks past its rated
    * temperature. At launch speeds the energy dump is enormous, so this is a
    * mechanic the player actually feels rather than a rounding error.

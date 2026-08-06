@@ -56,24 +56,56 @@ const tiltToggle = document.getElementById('tilt-toggle');
 const muteToggle = document.getElementById('mute-toggle');
 const controlsHint = document.getElementById('controls-hint');
 
+const TILT_MESSAGES = {
+  granted: 'Tilt steering on. Hold the phone however you like — it re-centres at launch.',
+  denied: 'Tilt permission denied. On-screen arrows will steer instead.',
+  unsupported: 'No motion sensor available. On-screen arrows will steer instead.',
+};
+
 if (input.gyro.supported && input.touch.available) tiltToggle.hidden = false;
+
+/**
+ * Tilt steering is the default on anything with a touchscreen — it is the
+ * control the game is designed around, and arriving on a phone to find two
+ * small arrows instead reads as the mobile version being an afterthought. The
+ * pads stay as the fallback for a refused or missing sensor.
+ *
+ * Getting there is fiddlier than a flag. Android hands over the sensor for the
+ * asking, so it can be switched on at load. iOS only resolves
+ * `requestPermission()` inside a real user gesture, so the first tap anywhere
+ * in the garage is used, and `startRun` awaits it — otherwise the permission
+ * sheet appears over a countdown that is already running.
+ */
+let tiltEnabled = settings.tilt !== false;
+let tiltAttempted = false;
+
+async function ensureTilt({ gesture = false } = {}) {
+  if (tiltAttempted || input.gyroActive) return;
+  if (!tiltEnabled || !input.gyro.supported || !input.touch.available) return;
+  if (input.gyro.needsPermission && !gesture) return;
+
+  tiltAttempted = true;
+  const status = await input.enableGyro();
+  if (status !== 'granted') tiltEnabled = false;
+  updateControlAffordances(status === 'granted' ? '' : TILT_MESSAGES[status]);
+}
 
 tiltToggle.addEventListener('click', async () => {
   if (input.gyroActive) {
     input.disableGyro();
+    tiltEnabled = false;
+    saveSettings({ tilt: false });
     updateControlAffordances('Tilt steering off. Use the on-screen arrows.');
     return;
   }
-  tiltToggle.disabled = true;
-  const status = await input.enableGyro();
-  tiltToggle.disabled = false;
 
-  const messages = {
-    granted: 'Tilt steering on. Hold the phone however you like — it re-centres at launch.',
-    denied: 'Tilt permission denied. On-screen arrows will steer instead.',
-    unsupported: 'No motion sensor available. On-screen arrows will steer instead.',
-  };
-  updateControlAffordances(messages[status]);
+  tiltToggle.disabled = true;
+  tiltEnabled = true;
+  tiltAttempted = false;
+  await ensureTilt({ gesture: true });
+  tiltToggle.disabled = false;
+  saveSettings({ tilt: input.gyroActive });
+  if (input.gyroActive) updateControlAffordances(TILT_MESSAGES.granted);
 });
 
 muteToggle.addEventListener('click', () => {
@@ -108,7 +140,16 @@ function updateControlAffordances(message) {
 
 /* ------------------------------------------------------------------- flow */
 
-function startRun() {
+async function startRun() {
+  // Resolved before the countdown so a first-run permission sheet cannot land
+  // on top of a launch already in progress.
+  await ensureTilt({ gesture: true });
+
+  // A rung earned on the last run is taken up here, so the button on the
+  // result card launches at the new speed instead of sending the player back
+  // through the garage to pick it.
+  game.takeUnlockedSpeed();
+
   result.hide();
   garage.hide();
 
@@ -126,6 +167,14 @@ function startRun() {
 }
 
 document.getElementById('start').addEventListener('click', startRun);
+
+// Any first tap in the garage is a good enough gesture to ask iOS for the
+// motion sensor, so tilt is usually already live by the time Launch is pressed.
+document.getElementById('garage').addEventListener(
+  'pointerdown',
+  () => ensureTilt({ gesture: true }),
+  { once: true },
+);
 
 bus.on('statechange', (state) => {
   document.body.dataset.state = state;
@@ -189,7 +238,10 @@ const loop = new Loop({
       world.showcase(game.vehicle, showcaseTime);
       world.vehicle.update(showcaseSim, frameDt);
     } else if (game.sim) {
-      world.update(game.sim, frameDt);
+      // The sim keeps its final state after a run ends, so everything driven by
+      // it — camera shake, smoke, streaks — has to be told the run is over or
+      // it carries on shaking the scene behind the result card.
+      world.update(game.sim, frameDt, game.state !== 'result');
       if (import.meta.env.DEV) {
         window.__debug = { camera: renderer.camera, sim: game.sim, chase: world.chase, world, game };
       }
@@ -209,9 +261,10 @@ world.buildScene(game.scene, {
   target: 800,
   wall: 840,
   runway: 1200,
-  roadWidth: game.scene.roadWidth ?? 20,
+  roadWidth: game.scene.roadWidth ?? 14,
 });
 updateControlAffordances();
+ensureTilt();
 garage.show();
 document.body.dataset.state = 'garage';
 loop.start();

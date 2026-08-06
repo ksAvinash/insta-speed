@@ -15,7 +15,7 @@ export default {
   crosswind: 5,
   ambientTempC: -8,
 
-  roadWidth: 21,
+  roadWidth: 14.7,
   wallOffset: 55,
 
   sky: { top: 0x8fa8c4, bottom: 0xdfe8f2 },
@@ -25,6 +25,6 @@ export default {
   road: { color: 0xd8e2ec, secondary: 0xc2cfdc },
   props: [
     { type: 'tree', spacing: 26, lateral: 16, scatter: 7, scale: 1.5, color: 0x1f3b2c, bothSides: true },
-    { type: 'post', spacing: 40, lateral: 11.5, height: 2.6, color: 0xe04a2f, bothSides: true },
+    { type: 'post', spacing: 40, lateral: 8.4, height: 2.6, color: 0xe04a2f, bothSides: true },
   ],
 };

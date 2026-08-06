@@ -18,8 +18,9 @@ export class Result {
     this.stats = document.getElementById('result-stats');
     this.record = document.getElementById('result-record');
     this.unlock = document.getElementById('result-unlock');
+    this.retry = document.getElementById('retry');
 
-    document.getElementById('retry').addEventListener('click', onRetry);
+    this.retry.addEventListener('click', onRetry);
     document.getElementById('to-garage').addEventListener('click', onGarage);
   }
 
@@ -32,12 +33,25 @@ export class Result {
 
     renderStats(this.stats, {
       Score: int(result.score),
+      // The two halves of the score, so it is obvious what to attack next run.
+      Precision: result.clean
+        ? `${int(result.precisionPoints)} · ${result.error.toFixed(2)} m off`
+        : '—',
+      Pace: result.clean
+        ? `${int(result.paceBonus)} · ${Math.round(result.pace * 100)}% of par`
+        : '—',
       'Launch speed': `${int(result.launchSpeedKph)} km/h`,
       'Stopped at': metres(result.stoppedAt),
       'Target line': metres(result.target),
-      'Run time': seconds(result.time),
+      'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)})`,
       'Peak rotor': `${Math.round(result.peakRotorC)}°C`,
     });
+
+    // Winning a rung should hand it straight over — the button launches at the
+    // new speed rather than sending the player back through the garage.
+    this.retry.textContent = result.unlockedKph
+      ? `Launch at ${result.unlockedKph} km/h`
+      : 'Run it again';
 
     if (result.unlockedKph) {
       this.unlock.textContent = `${result.unlockedKph} km/h unlocked`;

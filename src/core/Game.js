@@ -1,8 +1,8 @@
 import { VehicleSim } from '../physics/VehicleSim.js';
-import { clamp } from '../physics/constants.js';
 import { getVehicle, DEFAULT_VEHICLE_ID } from '../vehicles/registry.js';
 import { getScene, DEFAULT_SCENE_ID } from '../scenes/registry.js';
 import { buildCourse } from './course.js';
+import { scoreRun, rateRun } from './score.js';
 import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH } from './speeds.js';
 import { recordBest, getUnlockedSpeed, unlockSpeed } from './Storage.js';
 import { bus } from './Bus.js';
@@ -12,15 +12,6 @@ export { buildCourse, idealStoppingDistance } from './course.js';
 /** @typedef {'garage'|'countdown'|'running'|'result'} GameState */
 
 const COUNTDOWN_SECONDS = 3;
-
-/** Rating bands, in metres of error from the target line. */
-const RATINGS = [
-  { grade: 'S', within: 0.5, label: 'Surgical' },
-  { grade: 'A', within: 2, label: 'Excellent' },
-  { grade: 'B', within: 6, label: 'Solid' },
-  { grade: 'C', within: 15, label: 'Loose' },
-  { grade: 'D', within: Infinity, label: 'Miles off' },
-];
 
 export class Game {
   constructor() {
@@ -79,6 +70,19 @@ export class Game {
   /** Jump straight to the fastest rung unlocked so far. */
   selectFastestUnlocked() {
     this.selectSpeed(this.unlockedSpeed);
+  }
+
+  /**
+   * Move onto a rung the run just earned, so "run it again" straight off the
+   * result card launches at the new speed. Winning a speed and then having to
+   * walk back through the garage to actually drive it is pure ceremony.
+   * @returns {boolean} true if the launch speed changed
+   */
+  takeUnlockedSpeed() {
+    const kph = this.result?.unlockedKph;
+    if (!kph || kph === this.launchSpeedKph) return false;
+    this.selectSpeed(kph);
+    return this.launchSpeedKph === kph;
   }
 
   /** Build the course and drop into the countdown. */
@@ -155,12 +159,14 @@ export class Game {
     const error = Math.abs(course.target - sim.x);
     const clean = partial.outcome === 'stopped';
 
-    const window = Math.max(20, course.target * 0.12);
-    const accuracy = clamp(1 - error / window, 0, 1);
-    const score = clean ? Math.round(100000 * accuracy ** 2) : 0;
-    const rating = clean
-      ? RATINGS.find((r) => error <= r.within)
-      : { grade: 'F', label: partial.outcome === 'crash' ? 'Wrecked' : 'Failed' };
+    const { score, accuracy, pace, precisionPoints, paceBonus } = scoreRun({
+      clean,
+      error,
+      target: course.target,
+      seconds: sim.elapsed,
+      parSeconds: course.runSeconds,
+    });
+    const rating = rateRun(clean, error, partial.outcome);
 
     const isRecord = clean && recordBest(this.vehicleId, this.sceneId, score, error);
 
@@ -174,6 +180,9 @@ export class Game {
       error,
       score,
       accuracy,
+      pace,
+      precisionPoints,
+      paceBonus,
       grade: rating.grade,
       label: rating.label,
       isRecord,
@@ -183,6 +192,7 @@ export class Game {
       stoppedAt: sim.x,
       target: course.target,
       time: sim.elapsed,
+      parSeconds: course.runSeconds,
       peakRotorC: Math.max(sim.rotorTemp.front, sim.rotorTemp.rear),
       vehicleId: this.vehicleId,
       sceneId: this.sceneId,

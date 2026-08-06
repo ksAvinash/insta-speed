@@ -15,7 +15,7 @@ export default {
   crosswind: 0,
   ambientTempC: 16,
 
-  roadWidth: 15,
+  roadWidth: 10.5,
   wallOffset: 30,
   tunnel: true,
 
@@ -26,6 +26,6 @@ export default {
   road: { color: 0x3a3f47, secondary: 0x2c3037 },
   props: [
     { type: 'lamp', spacing: 24, lateral: 0, height: 6.2, color: 0xffe9b0, emissive: true },
-    { type: 'post', spacing: 12, lateral: 7.6, height: 1.1, color: 0xf5d13a, bothSides: true },
+    { type: 'post', spacing: 12, lateral: 6.4, height: 1.1, color: 0xf5d13a, bothSides: true },
   ],
 };

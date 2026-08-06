@@ -112,9 +112,12 @@ export class TireSmoke {
    * @param {number} dt
    * @param {import('three').Vector3[]} contactPoints world-space wheel contact
    *   patches, taken from the scene graph rather than recomputed from sim state
+   * @param {boolean} [live] false once the run is over — the sim keeps its final
+   *   slip state, so emission has to be stopped explicitly rather than waiting
+   *   for a value that will never change again
    */
-  update(sim, dt, contactPoints) {
-    const intensity = sim.slipIntensity;
+  update(sim, dt, contactPoints, live = true) {
+    const intensity = live ? sim.slipIntensity : 0;
 
     if (intensity > 0.02 && sim.v > 3 && contactPoints?.length) {
       // Emission is rate-based so it does not thin out at high framerates.

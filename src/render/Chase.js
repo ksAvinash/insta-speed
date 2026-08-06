@@ -22,6 +22,7 @@ export class Chase {
     this.target = new THREE.Vector3();
     this.lookAt = new THREE.Vector3();
     this.shake = 0;
+    this.judder = 0;
     this.yawLag = 0;
     this.distance = 7;
     this.height = 1.8;
@@ -44,8 +45,10 @@ export class Chase {
   /**
    * @param {import('../physics/VehicleSim.js').VehicleSim} sim
    * @param {number} dt
+   * @param {boolean} [live] false once the run is over, which parks the shake
+   *   and the FOV boost instead of leaving them buzzing behind the result card
    */
-  update(sim, dt) {
+  update(sim, dt, live = true) {
     const speedRatio = clamp(sim.v / 140, 0, 1.4);
 
     // Ease the rig back and down as speed builds.
@@ -86,10 +89,28 @@ export class Chase {
       sim.x + this.lookOffset.z,
     );
 
-    // Shake from deceleration and from tyres past their grip peak.
-    const stress = clamp(-sim.ax / 14, 0, 1) * 0.55 + sim.slipIntensity * 0.9;
-    this.shake += (stress - this.shake) * Math.min(1, dt * 10);
-    const amp = this.shake * 0.16;
+    // Two separate channels, because they mean different things to the player.
+    //
+    // `shake` is the low rumble of hard deceleration. It used to be strong
+    // enough that simply braking well made the whole screen stutter, which read
+    // as a framerate problem rather than as speed, so it is now understated.
+    //
+    // `judder` fires only once a wheel has genuinely stopped turning. That is
+    // the mistake worth feeling in your hands: it hits fast, sits at a higher
+    // frequency than the rumble, and fades as the car slows. Locking up should
+    // be unmistakable without heavy braking being uncomfortable.
+    const locked = sim.locked;
+    const lockedAxles = (locked.front ? 1 : 0) + (locked.rear ? 1 : 0);
+
+    const rumble = live ? clamp(-sim.ax / 18, 0, 1) * 0.3 + sim.slipIntensity * 0.35 : 0;
+    const lockup = live ? lockedAxles * 0.5 * clamp(sim.v / 10, 0, 1) : 0;
+
+    this.shake += (rumble - this.shake) * Math.min(1, dt * 8);
+    // Onset is snappy, release is slower — a lock should announce itself.
+    this.judder += (lockup - this.judder) * Math.min(1, dt * (lockup > this.judder ? 24 : 7));
+
+    const rumbleAmp = this.shake * 0.09;
+    const juddAmp = this.judder * 0.16;
     const t = performance.now() * 0.001;
 
     this.camera.position.set(
@@ -97,12 +118,14 @@ export class Chase {
       this.offset.y,
       sim.x + this.offset.z,
     );
-    this.camera.position.x += Math.sin(t * 47) * amp;
-    this.camera.position.y += Math.sin(t * 61) * amp * 0.7;
+    this.camera.position.x += Math.sin(t * 47) * rumbleAmp + Math.sin(t * 96) * juddAmp;
+    this.camera.position.y += Math.sin(t * 61) * rumbleAmp * 0.7 + Math.cos(t * 103) * juddAmp * 0.8;
     this.camera.lookAt(this.lookAt);
-    this.camera.rotateZ(Math.sin(t * 39) * amp * 0.05);
+    this.camera.rotateZ((Math.sin(t * 39) * rumbleAmp + Math.sin(t * 88) * juddAmp) * 0.05);
 
-    const targetFov = this.baseFov + speedRatio * 13 + this.shake * 3;
+    const targetFov = live
+      ? this.baseFov + speedRatio * 13 + this.shake * 3 + this.judder * 2
+      : this.baseFov;
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 5);
     this.camera.updateProjectionMatrix();
   }

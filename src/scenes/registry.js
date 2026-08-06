@@ -15,9 +15,11 @@
  * @property {number} [airDensity] kg/m^3 — thinner air at altitude means less drag
  * @property {number} [crosswind] m/s, positive pushes right
  * @property {number} [ambientTempC] affects how fast rotors shed heat
- * @property {number} runwayLength total road length, m
- * @property {number} targetDistance distance from launch to the target line, m
- * @property {number} [roadWidth] m
+ * @property {number} [coastSeconds] override the judgement window before the
+ *   braking point — see core/course.js. The target distance itself is derived,
+ *   never authored.
+ * @property {number} [wallOffset] m past the line before the wall
+ * @property {number} [roadWidth] m — leaving it is a fail
  * @property {{ top: number, bottom: number }} sky vertical gradient colours
  * @property {{ color: number, density: number }} fog
  * @property {{ color: number, intensity: number, position: [number, number, number] }} sun

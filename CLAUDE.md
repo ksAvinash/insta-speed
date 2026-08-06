@@ -36,13 +36,14 @@ npm run build      # static bundle into dist/
 
 ```
 src/
-  core/     Game.js (state machine)  Loop.js (fixed step)  course.js  speeds.js  Bus.js  Storage.js
+  core/     Game.js (state machine)  Loop.js (fixed step)  course.js  speeds.js
+            score.js  Bus.js  Storage.js
   physics/  VehicleSim.js  Tire.js  Surface.js  constants.js
   vehicles/ registry.js  specs/*.js     <- one data file per vehicle
   scenes/   registry.js  defs/*.js      <- one data file per scene
   render/   Renderer  World  Environment  RoadBuilder  Props  VehicleView  Chase  trackFrame  textures
   input/    InputManager  GyroSource  KeyboardSource  TouchSource
-  fx/       TireSmoke  SpeedLines  Audio
+  fx/       TireSmoke  SkidMarks  SpeedLines  Audio
   ui/       garage  hud  result  format  styles.css
 ```
 
@@ -112,6 +113,17 @@ arrow-function class fields instead (see `Loop.js`, `GyroSource.js`,
    before measuring, or an unstable vehicle spins during the measurement and
    drags the target line with it.
 
+8. **Effects have to be told the run is over.** The sim stops being stepped at
+   the finish but keeps its final state, so anything reading `sim.ax`,
+   `slipIntensity` or `sim.v` carries on forever — camera shake buzzing behind
+   the result card, smoke pouring out of a parked car. `World.update` takes a
+   `live` flag; pass `game.state !== 'result'`.
+
+9. **Road width and crosswind are one setting.** Narrowing the roads by 30%
+   made Storm Deck Bridge unwinnable for the superbike at its old 7 m/s, which
+   lifts its rear wheel under braking and drifts 9 m with a driver actively
+   correcting. Changing either needs the test matrix re-run.
+
 ## Tuned vs. derived values
 
 Most of the model is derived from real vehicle dynamics. Three constants are
@@ -134,9 +146,15 @@ moves that number outside the window, the change is wrong — not the test.
 
 `test/course.test.js` runs all 5 vehicles against all 4 scenes across the speed
 ladder and asserts each pairing is winnable: a lane-keeping driver stays on the
-road, and the target line is reachable. It also checks run duration lands inside
-the budget and that target distance grows monotonically with launch speed. **Any new vehicle or scene automatically joins this matrix**
-once added to the import list at the top of the file. Add it there.
+road, and the target line is reachable. It also checks that a perfectly judged
+run lands on par, that the judgement window has not grown with the ladder, and
+that target distance grows monotonically with launch speed. **Any new vehicle or
+scene automatically joins this matrix** once added to the import list at the top
+of the file. Add it there.
+
+`test/score.test.js` covers `core/score.js` — kept registry-free for exactly
+that reason. The load-bearing case is that a quick stop 200 m short of the line
+scores zero: pace is multiplied by precision, never added beside it.
 
 Note the deliberate choice of a *lane-keeping* driver rather than a passive one.
 A car left completely unsteered in a crosswind genuinely does get blown off the

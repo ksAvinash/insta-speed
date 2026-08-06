@@ -16,7 +16,7 @@ export default {
   crosswind: 0,
   ambientTempC: 34,
 
-  roadWidth: 26,
+  roadWidth: 18.2,
   wallOffset: 45,
 
   sky: { top: 0x2f6fd0, bottom: 0xbfe0f5 },
@@ -27,7 +27,7 @@ export default {
   // condition, so its edges have to be unmistakable.
   road: { color: 0xb9b09a, secondary: 0xa39a84 },
   props: [
-    { type: 'post', spacing: 100, lateral: 17, height: 3.2, color: 0xd94b2b, bothSides: true },
+    { type: 'post', spacing: 100, lateral: 11.5, height: 3.2, color: 0xd94b2b, bothSides: true },
     { type: 'rock', spacing: 220, lateral: 40, scatter: 24, scale: 1.6, color: 0xb8ad97 },
   ],
 };

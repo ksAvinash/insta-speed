@@ -57,6 +57,8 @@ export class VehicleView {
     this.brakeLights = [];
     this.disposables = [];
     this.wheelSpin = 0;
+    this.dive = 0;
+    this.roll = 0;
   }
 
   /** @param {import('../vehicles/registry.js').VehicleSpec} spec */
@@ -160,11 +162,21 @@ export class VehicleView {
 
     // Dive under braking and squat under the (brief) launch, capped so heavy
     // vehicles do not look like they are folding in half.
+    //
+    // Filtered rather than driven straight off `ax`: ABS servos caliper
+    // pressure at 30 Hz, so the raw deceleration trace is a sawtooth and the
+    // body was buzzing against it. A real suspension has mass and dampers, and
+    // this is the cheapest honest stand-in for both.
     const dive = clamp(-sim.ax / 22, -0.05, 0.09);
-    this.chassis.rotation.x = dive;
-    this.chassis.position.y = -dive * 0.35;
+    const roll = clamp(sim.ay / 40, -0.06, 0.06);
+    const k = 1 - Math.exp(-dt * 9);
+    this.dive += (dive - this.dive) * k;
+    this.roll += (roll - this.roll) * k;
+
+    this.chassis.rotation.x = this.dive;
+    this.chassis.position.y = -this.dive * 0.35;
     // Body roll leans away from the lateral acceleration, in the mirrored frame.
-    this.chassis.rotation.z = clamp(sim.ay / 40, -0.06, 0.06);
+    this.chassis.rotation.z = this.roll;
 
     const r = this.spec.wheelRadius;
     for (const { mesh, steers } of this.wheels) {

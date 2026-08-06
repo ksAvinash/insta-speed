@@ -9,26 +9,22 @@ import { PHYSICS_DT } from '../physics/constants.js';
  */
 
 /**
- * How long a run should last.
+ * The judgement window: how long you coast before the braking point arrives.
  *
- * Pinning every run to a flat 20 s sounds tidy but plays badly at the bottom of
- * the ladder: stopping from 100 km/h takes about 2.5 s, so the other 17.5 s is
- * spent holding a straight line waiting for something to happen. Instead the
- * budget scales with the length of the stop itself and is capped, so runs grow
- * from brisk to substantial as the ladder climbs — and the top of every
- * vehicle's ladder lands on the full 20 s.
+ * This is the same at every rung of the ladder, and that is the whole design.
+ * Budgeting a *total* run time instead — longer runs the faster you go — meant
+ * each unlock mostly bought more road to sit on at constant speed waiting for
+ * something to happen, which is the least interesting part of the run. Holding
+ * the window fixed means unlocking 400 km/h changes what the stop demands of
+ * you rather than how long you stare down a runway: the same three and a half
+ * seconds to place the car, against a stop that is now four times longer.
  *
- * A scene can override the whole calculation with `runSeconds`.
+ * Course length still grows with speed, because braking distance does, but only
+ * by as much as the physics forces.
+ *
+ * A scene can override the window with `coastSeconds`.
  */
-export const MAX_RUN_SECONDS = 20;
-export const MIN_RUN_SECONDS = 12;
-const RUN_SECONDS_PER_BRAKE_SECOND = 2.5;
-
-/** @param {number} brakeSeconds time to stop if braking from the launch */
-export function runBudget(brakeSeconds) {
-  const scaled = brakeSeconds * RUN_SECONDS_PER_BRAKE_SECOND;
-  return Math.min(MAX_RUN_SECONDS, Math.max(MIN_RUN_SECONDS, scaled));
-}
+export const COAST_SECONDS = 3.5;
 
 /**
  * The line is never placed closer than this multiple of the flat-out stopping
@@ -79,11 +75,10 @@ function lookup(table, v) {
 /**
  * Builds the course for a vehicle, scene and launch speed.
  *
- * The target line is placed so that a perfectly judged run — coast at speed,
- * then brake flat out at the last possible moment — takes roughly
- * `runSeconds`. That keeps a 100 km/h opening run and a 600 km/h final run
- * feeling like the same length of game, while the distance itself scales
- * naturally with speed: slower launches get much shorter courses.
+ * The target line is placed so that a perfectly judged run — coast at speed for
+ * `COAST_SECONDS`, then brake flat out and never lift — stops exactly on it.
+ * Every rung therefore opens with the same short window to read the road and
+ * commit, and everything past that point is the stop itself.
  *
  * It is computed from two reference simulations rather than a search, so it is
  * cheap enough to call on every garage interaction.
@@ -105,7 +100,7 @@ export function buildCourse(spec, scene, launchSpeedKph = spec.maxLaunchKph) {
 
   // Braking alone from this speed. Anything below this is unreachable.
   const ideal = flatOut.dist;
-  const runSeconds = scene.runSeconds ?? runBudget(flatOut.time);
+  const coastWindow = scene.coastSeconds ?? COAST_SECONDS;
 
   // Walk the coasting profile, asking at each moment "if I stood on the brake
   // now, where and when would I stop?".
@@ -116,21 +111,26 @@ export function buildCourse(spec, scene, launchSpeedKph = spec.maxLaunchKph) {
     while (sim.v > 1 && guard++ < STEP_GUARD) {
       const remaining = lookup(table, sim.v);
       last = { seconds: sim.elapsed, distance: sim.x + remaining.dist };
-      if (stop(sim.elapsed + remaining.time, last.distance)) return last;
+      if (stop(sim.elapsed, last.distance)) return last;
       sim.step(PHYSICS_DT, COAST);
     }
     return last;
   };
 
-  const byTime = flatOut.time >= runSeconds ? { seconds: 0, distance: ideal }
-    : walk((totalTime) => totalTime >= runSeconds);
-
-  const target = Math.max(byTime.distance, ideal * MIN_TARGET_FACTOR);
+  const byWindow = walk((coasted) => coasted >= coastWindow);
+  const target = Math.max(byWindow.distance, ideal * MIN_TARGET_FACTOR);
 
   // Coast time has to follow whichever target actually won, or the garage would
   // advertise a braking point that lands short.
   const coastSeconds =
-    target > byTime.distance ? walk((_t, distance) => distance >= target).seconds : byTime.seconds;
+    target > byWindow.distance
+      ? walk((_coasted, distance) => distance >= target).seconds
+      : byWindow.seconds;
+
+  // Par: coast to the braking point, then the stop from whatever speed drag has
+  // left you with.
+  const brakingFrom = coastSpeedAt(spec, still, launchSpeedKph, coastSeconds);
+  const parSeconds = coastSeconds + lookup(table, brakingFrom).time;
 
   const wallOffset = scene.wallOffset ?? 40;
   return {
@@ -139,12 +139,24 @@ export function buildCourse(spec, scene, launchSpeedKph = spec.maxLaunchKph) {
     idealSeconds: flatOut.time,
     target,
     coastSeconds,
-    runSeconds,
+    /**
+     * What a perfectly judged run takes: the judgement window plus the stop
+     * itself. This is par — the pace half of the score is measured against it.
+     */
+    runSeconds: parSeconds,
     launchSpeedKph,
     wall: target + wallOffset,
     runway: target + wallOffset + 300,
-    roadWidth: scene.roadWidth ?? 20,
+    roadWidth: scene.roadWidth ?? 14,
   };
+}
+
+/** Speed left after coasting for `seconds` — drag alone has bled some off. */
+function coastSpeedAt(spec, scene, launchSpeedKph, seconds) {
+  const sim = new VehicleSim(spec, scene, { launchSpeedKph });
+  let guard = 0;
+  while (sim.elapsed < seconds && sim.v > 1 && guard++ < STEP_GUARD) sim.step(PHYSICS_DT, COAST);
+  return sim.v;
 }
 
 /** Kept for callers that only want the flat-out number. */

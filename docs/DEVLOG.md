@@ -166,6 +166,34 @@ longitudinal question and should not depend on a vehicle's lateral stability.
   minimum stopping distance, leaving nothing to absorb crosswind or the cost of
   steering — making them impossible. Floored at `1.2 × ideal`.
 
+## Round two: pacing, feel and legibility
+
+- **The run budget was buying dead time.** Scaling total run length with the
+  ladder meant each unlock mostly added road to sit on at constant speed.
+  Replaced with a fixed 3.5 s judgement window at every rung: distance still
+  grows with speed, because braking distance does, but the waiting does not.
+- **Scoring ignored half the skill.** Precision alone rewarded creeping up to
+  the line. Pace (`par / elapsed`) now pays for committing late — multiplied by
+  precision, so the "brake at launch, stop 200 m short in 3 s" exploit pays
+  nothing. Split into `core/score.js` so it could be tested without the
+  registries.
+- **50 km/h rungs read as the same run twice.** Doubled to 100.
+- **Winning a rung sent you back to the garage to use it.** The result card's
+  primary button now launches at the speed just unlocked.
+- **Braking shook the screen hard enough to look like dropped frames.** The
+  camera rumble was tied to raw deceleration, which is a 30 Hz sawtooth under
+  ABS. Rumble is now understated, the body dive is filtered, and the violence
+  was moved to where it means something: a hard judder that fires only once a
+  wheel has actually stopped turning.
+- **The scene kept shaking behind the result card**, because every effect reads
+  a sim that stopped being stepped but still holds its last frame of state.
+- **The target line was hard to see at speed** — a flat stripe on the road is
+  under the nose before it resolves. It now has a light curtain, a lit gantry,
+  braking boards down the approach and a chequered band, in that order of
+  distance.
+- **Tyres left no evidence.** Skid marks are laid from the contact patches into
+  one recycled buffer, so a lock-up is still readable after the fact.
+
 ## What the test matrix caught
 
 Beyond individual bugs, running all 5 vehicles × 4 scenes surfaced two design

@@ -4,6 +4,7 @@ import { Props } from './Props.js';
 import { VehicleView } from './VehicleView.js';
 import { Chase } from './Chase.js';
 import { TireSmoke } from '../fx/TireSmoke.js';
+import { SkidMarks } from '../fx/SkidMarks.js';
 import { SpeedLines } from '../fx/SpeedLines.js';
 import { getSurface } from '../physics/Surface.js';
 
@@ -24,6 +25,7 @@ export class World {
     this.vehicle = new VehicleView(scene);
     this.chase = new Chase(renderer);
     this.smoke = new TireSmoke(scene, renderer.quality.smoke);
+    this.skid = new SkidMarks(scene);
     this.speedLines = new SpeedLines(scene);
 
     renderer.onTierChange = (_name, quality) => {
@@ -50,6 +52,8 @@ export class World {
     this.props.build(def, course, quality);
     this.smoke.setTint(getSurface(def.surface).smokeColor);
     this.smoke.reset();
+    this.skid.setScene(def);
+    this.skid.reset();
   }
 
   /** @param {import('../vehicles/registry.js').VehicleSpec} spec */
@@ -57,17 +61,25 @@ export class World {
     this.currentSpec = spec;
     this.vehicle.build(spec, this.renderer.quality);
     this.chase.configure(spec);
+    this.skid.setVehicle(spec);
   }
 
   /**
    * @param {import('../physics/VehicleSim.js').VehicleSim} sim
    * @param {number} dt
+   * @param {boolean} [live] false once the run has ended. The sim stops being
+   *   stepped but keeps its final state, so without this every effect that
+   *   reads it — camera shake, smoke, skid marks — carries on as though the car
+   *   were still sliding, behind the result card.
    */
-  update(sim, dt) {
+  update(sim, dt, live = true) {
     this.vehicle.update(sim, dt);
-    this.chase.update(sim, dt);
-    this.smoke.update(sim, dt, this.vehicle.wheelWorldPositions());
-    this.speedLines.update(sim, this.renderer.camera, dt);
+    this.chase.update(sim, dt, live);
+    const patches = this.vehicle.wheelWorldPositions();
+    this.smoke.update(sim, dt, patches, live);
+    this.skid.update(sim, patches, this.vehicle.wheels, live);
+    this.speedLines.update(sim, this.renderer.camera, dt, live);
+    this.road.update(dt);
     this.environment.follow(sim.x);
   }
 

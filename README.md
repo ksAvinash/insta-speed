@@ -39,21 +39,30 @@ will have to accept the self-signed certificate warning on the phone.
 Brake input ramps rather than snapping on, so it is analogue on every device —
 holding, releasing and re-applying is a real technique.
 
-Tilt steering has to be switched on from the garage, because iOS only grants the
-sensor from inside a user gesture. It calibrates to however you are holding the
-phone at the start of each run, so sitting up or lying down both work. If
-permission is refused or there is no sensor, on-screen arrows appear instead.
+Tilt steering is the default on phones and tablets. iOS only grants the sensor
+from inside a user gesture, so the first tap in the garage is used to ask for
+it; everywhere else it is live from load. It calibrates to however you are
+holding the phone at the start of each run, so sitting up or lying down both
+work. If permission is refused or there is no sensor, on-screen arrows appear
+instead, and the garage toggle turns tilt off for good.
 
 ## How it works
 
-You start every vehicle at 100 km/h and unlock the next rung — 50 km/h faster —
-by bringing the previous one to a clean stop, up to the vehicle's top speed.
+You start every vehicle at 100 km/h and unlock the next rung — 100 km/h faster —
+by bringing the previous one to a clean stop, up to the vehicle's top speed. The
+button on the result card launches straight into the rung you just won.
 
 The target line sits beyond the distance the car needs to stop flat out, so
 braking at `t=0` leaves you well short. The whole game is judging the coast.
-Each course is sized so a perfectly judged run takes 12-20 seconds, scaling
-with the length of the stop, so the ladder escalates instead of padding early
-runs with dead time.
+Every course gives you the same 3.5-second judgement window before the braking
+point arrives, at every rung: unlocking 500 km/h changes what the stop demands
+of you, not how long you sit at speed waiting for it.
+
+Points come from two things. **Precision** is how close to the line you stopped,
+squared, so the last metre is worth more than the first ten. **Pace** is how
+little time the run took against par for the course, which rewards staying at
+speed and committing late. Pace is multiplied by precision, so stopping 200 m
+short in record time is worth nothing.
 
 Physics runs at a fixed 120 Hz, independent of framerate, so the same inputs
 always produce the same stop.

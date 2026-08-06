@@ -46,9 +46,11 @@ export class SpeedLines {
    * @param {import('../physics/VehicleSim.js').VehicleSim} sim
    * @param {THREE.Camera} camera
    * @param {number} dt
+   * @param {boolean} [live] false once the run is over — a crash freezes the sim
+   *   at speed, and streaks should not keep tearing past the result card
    */
-  update(sim, camera, dt) {
-    const speedRatio = clamp((sim.v - 42) / 130, 0, 1);
+  update(sim, camera, dt, live = true) {
+    const speedRatio = live ? clamp((sim.v - 42) / 130, 0, 1) : 0;
     this.material.opacity = speedRatio * 0.42;
     if (speedRatio <= 0) return;
 

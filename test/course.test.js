@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { VehicleSim } from '../src/physics/VehicleSim.js';
 import { PHYSICS_DT } from '../src/physics/constants.js';
-import { buildCourse, MAX_RUN_SECONDS, MIN_RUN_SECONDS } from '../src/core/course.js';
+import { buildCourse, COAST_SECONDS } from '../src/core/course.js';
 import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH, SPEED_STEP_KPH } from '../src/core/speeds.js';
 
 // The registries use `import.meta.glob`, which is a Vite transform and does not
@@ -145,7 +145,7 @@ for (const spec of VEHICLES) {
   }
 }
 
-test('a perfectly judged run takes about the intended duration', () => {
+test('a perfectly judged run takes about par', () => {
   for (const spec of VEHICLES) {
     for (const scene of SCENES) {
       for (const kph of speedLadder(spec)) {
@@ -157,25 +157,39 @@ test('a perfectly judged run takes about the intended duration', () => {
         }
         while (!sim.stopped && guard++ < 200000) sim.step(PHYSICS_DT, { steer: 0, brake: 1 });
 
+        // Par is what the pace half of the score is measured against, so a run
+        // that is actually driven perfectly has to be able to reach it.
         const where = `${spec.name} @ ${scene.name} @ ${kph} km/h`;
         assert.ok(
-          course.runSeconds >= MIN_RUN_SECONDS && course.runSeconds <= MAX_RUN_SECONDS,
-          `${where}: budget ${course.runSeconds.toFixed(1)} s is outside ${MIN_RUN_SECONDS}-${MAX_RUN_SECONDS} s`,
+          Math.abs(sim.elapsed - course.runSeconds) < 1.5,
+          `${where}: run took ${sim.elapsed.toFixed(1)} s against par of ${course.runSeconds.toFixed(1)} s`,
         );
-        assert.ok(
-          sim.elapsed >= course.runSeconds - 2,
-          `${where}: run took only ${sim.elapsed.toFixed(1)} s, budget ${course.runSeconds.toFixed(1)} s`,
-        );
+      }
+    }
+  }
+});
 
-        // Some pairings physically cannot make the budget — a 15-tonne truck at
-        // 320 km/h on packed snow needs 27 s to stop at all. Those are held to a
-        // generous ceiling; everything else has to land near its budget.
-        const impossible = course.idealSeconds >= course.runSeconds;
-        const ceiling = impossible ? course.idealSeconds + 4 : course.runSeconds + 2;
+test('the judgement window stays the same all the way up the ladder', () => {
+  for (const spec of VEHICLES) {
+    for (const scene of SCENES) {
+      for (const kph of speedLadder(spec)) {
+        const { coastSeconds } = buildCourse(spec, scene, kph);
+        const where = `${spec.name} @ ${scene.name} @ ${kph} km/h`;
+
+        // Unlocking a faster launch must not buy more time sitting at speed
+        // waiting for the braking point — that is the boring half of a run.
+        // The only thing that may push the window out is the minimum-target
+        // floor on pairings that can barely stop at all, and only slightly.
         assert.ok(
-          sim.elapsed <= ceiling,
-          `${where}: run took ${sim.elapsed.toFixed(1)} s, ceiling ${ceiling.toFixed(1)} s` +
-            (impossible ? ` (flat-out stop alone is ${course.idealSeconds.toFixed(1)} s)` : ''),
+          coastSeconds >= COAST_SECONDS - 0.05,
+          `${where}: only ${coastSeconds.toFixed(2)} s to judge the braking point`,
+        );
+        // The floor is worth about a second on the handful of pairings that can
+        // barely stop inside their own course — a hot hatch at 420 km/h on
+        // packed snow — and nothing at all everywhere else.
+        assert.ok(
+          coastSeconds <= COAST_SECONDS + 1.5,
+          `${where}: ${coastSeconds.toFixed(2)} s of coasting, window is ${COAST_SECONDS} s`,
         );
       }
     }
@@ -227,11 +241,14 @@ test('the speed ladder starts at the base speed and ends at the vehicle top spee
 
 test('ladder navigation clamps to what is unlocked', () => {
   const spec = VEHICLES.find((v) => v.maxLaunchKph === 600);
-  assert.equal(nextSpeed(spec, 100), 150);
-  assert.equal(nextSpeed(spec, 550), 600);
+  assert.equal(nextSpeed(spec, 100), 200);
+  assert.equal(nextSpeed(spec, 500), 600);
   assert.equal(nextSpeed(spec, 600), null, 'top of the ladder has no next rung');
 
-  assert.equal(clampToLadder(spec, 400, 250), 250, 'cannot select beyond what is unlocked');
+  assert.equal(clampToLadder(spec, 400, 250), 200, 'cannot select beyond what is unlocked');
   assert.equal(clampToLadder(spec, 200, 600), 200, 'unlocked rungs pass through');
-  assert.equal(clampToLadder(spec, 175, 600), 150, 'off-ladder snaps down to a real rung');
+  assert.equal(clampToLadder(spec, 175, 600), 100, 'off-ladder snaps down to a real rung');
+
+  // Progress saved against the old 50 km/h ladder has to keep working.
+  assert.equal(clampToLadder(spec, 350, 350), 300, 'a stale unlock snaps back onto the ladder');
 });

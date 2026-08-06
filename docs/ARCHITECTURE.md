@@ -74,7 +74,8 @@ Loop.#tick(now)
   │     Game.update(dt, input)  → VehicleSim.step(dt, input)
   └─ render(alpha, frameDt):
         Renderer.probe(frameDt)
-        World.update(sim, frameDt)   → VehicleView, Chase, TireSmoke, SpeedLines
+        World.update(sim, dt, live)  → VehicleView, Chase, TireSmoke,
+                                       SkidMarks, SpeedLines
         Audio.update(sim, frameDt)
         Hud.update(sim, distanceToTarget)
         Renderer.render()
@@ -113,18 +114,20 @@ the HUD converts to km/h and degrees.
 ## Course layout
 
 `buildCourse(spec, scene, launchSpeedKph)` places the target line so that a
-perfectly judged run — coast at speed, then brake flat out at the last possible
-moment — takes a set number of seconds. It works from two reference
-simulations rather than a search, so it is cheap enough to call on every garage
-interaction (the whole 156-pairing matrix builds in well under a second).
+perfectly judged run — coast for `COAST_SECONDS`, then brake flat out and never
+lift — stops exactly on it. It works from two reference simulations rather than
+a search, so it is cheap enough to call on every garage interaction (the whole
+matrix builds in well under a second).
 
 1. A flat-out stop is sampled into a table of "distance and time still needed
    from this speed".
-2. The run budget is `clamp(2.5 × flat-out braking time, 12 s, 20 s)`.
-3. The coasting profile is walked until braking from that point would spend the
-   budget. That distance is the target.
+2. The coasting profile is walked for `COAST_SECONDS` — the judgement window,
+   the same at every rung.
+3. Where braking from that point would stop is the target.
 4. The target is floored at `1.2 × ideal`, so there is always room to absorb
    crosswind and the cost of steering.
+5. `runSeconds` falls out of the above: coast plus stop. That is **par**, and
+   the pace half of the score is measured against it.
 
 Because the line sits past the flat-out stop, braking at `t=0` always leaves you
 short — the player must judge the coast. Deriving everything per vehicle *and*
@@ -136,19 +139,35 @@ longitudinal question, and a laterally unstable vehicle would otherwise drag it
 around — the superbike spins itself in a crosswind once braking lifts its rear
 wheel, which made the target move *closer* as launch speed rose.
 
-### Why the budget scales
+### Why the judgement window is fixed
 
-A flat 20 s for everything plays badly at the bottom of the ladder: stopping
-from 100 km/h takes ~2.5 s, so the rest is spent holding a straight line waiting
-for something to happen. Scaling with the length of the stop makes early runs
-brisk (12 s) and the top of every ladder land on the full 20 s.
+The original design budgeted a *total* run time that grew with the ladder — 12 s
+at the bottom, 20 s at the top. What that actually bought with each unlock was
+more road to sit on at constant speed before anything happened, which is the
+least interesting part of a run. Holding the window at a flat 3.5 s means an
+unlock changes the stop rather than the wait: same time to place the car,
+against a stop that is now four times longer. Course length still grows with
+speed, because braking distance does, but only by as much as physics forces.
+
+## Scoring
+
+`core/score.js` is registry-free and unit-tested on its own. Precision is
+`accuracy²` over a window of `max(20 m, 12% of the course)`; pace is
+`par / elapsed`, capped at 1. Pace is **multiplied** by accuracy rather than
+added beside it — otherwise the quickest run available would be to brake at
+launch, stop 200 m short in record time, and collect the pace half anyway.
 
 ## Speed progression
 
-Every vehicle has a ladder (`core/speeds.js`): 100 km/h, +50 per rung, with the
+Every vehicle has a ladder (`core/speeds.js`): 100 km/h, +100 per rung, with the
 vehicle's own top speed as the final rung. A clean stop unlocks the next one,
-stored per vehicle in `localStorage`. Locked rungs are shown in the garage
-rather than hidden, so the player can see the climb ahead.
+stored per vehicle in `localStorage`, and the result card's primary button
+launches straight into it. Locked rungs are shown in the garage rather than
+hidden, so the player can see the climb ahead.
+
+A 50 km/h step was the original increment and half the ladder read as the same
+run twice; `clampToLadder` snaps stale saved progress back onto the coarser
+ladder.
 
 `spec.maxLaunchKph` is therefore a *cap*, not the speed you launch at.
 

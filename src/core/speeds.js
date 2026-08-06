@@ -1,14 +1,17 @@
 /**
  * The speed ladder.
  *
- * Players start every vehicle at 100 km/h and unlock the next rung — 50 km/h
+ * Players start every vehicle at 100 km/h and unlock the next rung — 100 km/h
  * faster — by bringing the previous one to a clean stop. The final rung is the
  * vehicle's own top speed, so the ladder always ends on a round, characterful
  * number rather than wherever the increments happened to land.
+ *
+ * The step is deliberately a whole 100: a 50 km/h bump barely changes how a
+ * stop feels, so half the ladder read as the same run twice.
  */
 
 export const BASE_SPEED_KPH = 100;
-export const SPEED_STEP_KPH = 50;
+export const SPEED_STEP_KPH = 100;
 
 /**
  * @param {import('../vehicles/registry.js').VehicleSpec} spec

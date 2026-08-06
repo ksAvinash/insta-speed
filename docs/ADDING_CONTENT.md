@@ -49,7 +49,7 @@ export default {
 ```
 
 `maxLaunchKph` is a cap. Players start every vehicle at 100 km/h and unlock
-50 km/h more per clean stop (`src/core/speeds.js`), so this sets how long the
+100 km/h more per clean stop (`src/core/speeds.js`), so this sets how long the
 ladder is and what the final run feels like. Courses are sized per rung, so a
 high cap does not make the early runs any longer.
 
@@ -121,8 +121,8 @@ export default {
   crosswind: 0,           // m/s, positive pushes right
   ambientTempC: 20,       // how fast rotors shed heat
 
-  runSeconds: undefined,  // optional: override the auto-sized run budget
-  roadWidth: 20,          // m — leaving it is a fail
+  coastSeconds: undefined, // optional: override the 3.5 s judgement window
+  roadWidth: 14,          // m — leaving it is a fail
   wallOffset: 40,         // m past the line
   tunnel: false,
 
@@ -148,13 +148,15 @@ Prop types: `post`, `lamp`, `rock`, `tree`, `pylon`.
   condition, so its edges must be unmistakable. The salt flats originally had a
   road almost the same colour as the salt and it was unplayable.
 - **You do not set the target distance.** `buildCourse` derives it per vehicle
-  *and* per launch speed so that a perfectly judged run spends its time budget —
-  `clamp(2.5 × flat-out braking time, 12 s, 20 s)`. Difficulty comes from grip,
-  wind and road width. Set `runSeconds` only if a scene genuinely needs a
-  different pace.
-- **Crosswind is powerful.** Above about 7 m/s, high-sided vehicles become very
-  hard and the superbike — which lifts its rear wheel under braking — can become
-  genuinely unwinnable. Check the test matrix after changing it.
+  *and* per launch speed, so that coasting for the judgement window and then
+  braking flat out stops exactly on the line. Difficulty comes from grip, wind
+  and road width. Set `coastSeconds` only if a scene genuinely needs a different
+  pace.
+- **Crosswind and road width are one setting, not two.** Roads are ~14 m, and at
+  5 m/s the superbike — which lifts its rear wheel under braking — already
+  drifts 5 m with a driver actively correcting. Raising the wind without
+  widening the road makes pairings unwinnable. Check the test matrix after
+  changing either.
 - **Prop spacing sells speed more than prop detail does.** Tighter spacing reads
   as faster.
 
@@ -171,8 +173,9 @@ const VEHICLES = [hyperGt, rallyHatch, superbike, semiTruck, schoolBus, myCar];
 
 It then automatically joins the full matrix, which sweeps the speed ladder and
 asserts for every vehicle × scene × speed that a lane-keeping driver stays on
-the road, that the target line is reachable, that the run lands inside its time
-budget, and that target distance grows with launch speed. Run `npm test`.
+the road, that the target line is reachable, that a perfectly judged run lands
+on par, that the judgement window has not grown, and that target distance grows
+with launch speed. Run `npm test`.
 
 If your addition fails those, the pairing is not winnable — fix the numbers
 rather than the test.

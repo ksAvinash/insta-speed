@@ -74,6 +74,46 @@ export function makeGroundTexture(def) {
   return finish(c, 240, 240, 4);
 }
 
+/**
+ * A vertical fade for the target line's light curtain: solid at the road,
+ * nothing at the top.
+ *
+ * The gradient is baked into the colour rather than the alpha because the
+ * curtain blends additively — a uniform pane of green lightened the entire sky
+ * behind it on the approach, which read as a filter over the camera instead of
+ * a marker standing on the road.
+ */
+export function makeCurtainTexture(color = '#4dff92') {
+  const { c, ctx } = canvas(8, 128);
+  const grad = ctx.createLinearGradient(0, 128, 0, 0);
+  grad.addColorStop(0, color);
+  grad.addColorStop(0.35, color);
+  grad.addColorStop(1, '#000000');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 8, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * Chequered banding for the target line. Nothing else in the game reads as
+ * "this is the line" from a kilometre out as immediately as a chequered flag.
+ * @param {number} squares across the width of the road
+ */
+export function makeCheckerTexture(colorA = '#ffffff', colorB = '#0d1a12', squares = 2) {
+  const { c, ctx } = canvas(128, 128);
+  ctx.fillStyle = colorA;
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillStyle = colorB;
+  for (let y = 0; y < 2; y++) {
+    for (let x = 0; x < 2; x++) {
+      if ((x + y) % 2 === 0) ctx.fillRect(x * 64, y * 64, 64, 64);
+    }
+  }
+  return finish(c, squares, 1, 4);
+}
+
 /** Chevron banding for the target gantry and the wall face. */
 export function makeHazardTexture(colorA = '#f5d13a', colorB = '#1b1b1f') {
   const { c, ctx } = canvas(128, 128);

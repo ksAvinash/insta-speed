@@ -12,10 +12,13 @@ export default {
   surface: 'wet',
   gripMultiplier: 1,
   airDensity: 1.26,
-  crosswind: 7,
+  // Wind and road width are one setting, not two. At 7 m/s the superbike
+  // settles at a 9 m drift even with a driver actively correcting, which was
+  // survivable on the old 19 m deck and simply off the road on this one.
+  crosswind: 5,
   ambientTempC: 9,
 
-  roadWidth: 19,
+  roadWidth: 13.3,
   wallOffset: 40,
 
   sky: { top: 0x2b3644, bottom: 0x6d7c8c },
@@ -25,6 +28,6 @@ export default {
   road: { color: 0x33383f, secondary: 0x272b31 },
   props: [
     { type: 'pylon', spacing: 180, lateral: 12.5, height: 34, color: 0xb2453a, bothSides: true },
-    { type: 'post', spacing: 9, lateral: 10.2, height: 1.25, color: 0xdadfe4, bothSides: true },
+    { type: 'post', spacing: 9, lateral: 7.6, height: 1.25, color: 0xdadfe4, bothSides: true },
   ],
 };
