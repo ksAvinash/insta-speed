@@ -612,19 +612,63 @@ body[data-state='countdown'] #brake-surface {
   z-index: 6;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   overscroll-behavior: contain;
   padding: calc(var(--safe-t) + var(--pad)) calc(var(--safe-r) + var(--pad))
     calc(var(--safe-b) + var(--pad)) calc(var(--safe-l) + var(--pad));
-  /* Readable behind the text at top and bottom, but clear through the middle
-     so the showcase vehicle is actually visible. */
+}
+
+/*
+  Garage is a sandwich:
+    top chrome (title + loadouts)
+    EMPTY STAGE  ← 3D vehicle shows through here
+    bottom chrome (speed + bay + launch)
+  The panel itself has NO fill and does not scroll as a unit, so the canvas
+  centre can never be covered by parts cards or loadout drawers.
+*/
+#garage {
+  overflow: hidden;
+  background: transparent;
+  /* Clicks pass through the empty stage to nothing useful; chrome re-enables. */
+  pointer-events: none;
+}
+
+/* Fixed pick menus must not be clipped by the garage sandwich. */
+#garage.has-menu-open {
+  overflow: visible;
+}
+
+#garage > .garage-chrome,
+#garage > .garage-head {
+  pointer-events: auto;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+/* Title floats over the canvas — no panel fill. */
+.garage-head {
+  background: transparent;
+  margin-bottom: 8px;
+}
+
+/* Soft edge fades only on the docks — never behind the wordmark. */
+.garage-chrome--top {
+  padding-bottom: 12px;
+  background: transparent;
+}
+
+.garage-chrome--bottom {
+  padding-top: 18px;
+  max-height: min(44vh, 380px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: linear-gradient(
-    180deg,
-    rgba(6, 8, 12, 0.95) 0%,
-    rgba(6, 8, 12, 0.9) 36%,
-    rgba(6, 8, 12, 0.26) 58%,
-    rgba(6, 8, 12, 0.66) 80%,
-    rgba(6, 8, 12, 0.96) 100%
+    0deg,
+    rgba(6, 8, 12, 0.98) 0%,
+    rgba(6, 8, 12, 0.94) 50%,
+    rgba(6, 8, 12, 0.55) 82%,
+    rgba(6, 8, 12, 0) 100%
   );
 }
 
@@ -637,8 +681,10 @@ body[data-state='countdown'] #brake-surface {
 }
 
 #result {
+  overflow-y: auto;
   background: rgba(6, 8, 12, 0.72);
   backdrop-filter: blur(3px);
+  pointer-events: auto;
 }
 
 #garage[hidden],
@@ -649,59 +695,426 @@ body[data-state='countdown'] #brake-surface {
 
 .garage-head h1 {
   margin: 0;
-  font-size: clamp(30px, 8vw, 52px);
+  font-size: clamp(26px, 7vw, 48px);
   font-weight: 800;
   letter-spacing: -0.045em;
-  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.55);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.9),
+    0 4px 28px rgba(0, 0, 0, 0.65);
 }
 
 .garage-head h1 span {
   color: var(--accent);
-  text-shadow: 0 0 24px rgba(77, 255, 146, 0.35);
-}
-
-.tagline {
-  margin: 4px 0 0;
-  color: var(--muted);
-  font-size: clamp(13px, 3.4vw, 16px);
-  max-width: 46ch;
-}
-
-/* Soft vignette so the showcase car sits in a pocket of focus. */
-#garage::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(
-    ellipse 70% 55% at 50% 48%,
-    transparent 30%,
-    rgba(0, 0, 0, 0.35) 100%
-  );
+  text-shadow:
+    0 0 24px rgba(77, 255, 146, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.85);
 }
 
 .picker {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(8, 10, 14, 0.42);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(6px);
+  background: rgba(8, 10, 14, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
 }
 
-.garage-body {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--pad);
-  margin: clamp(14px, 3vh, 26px) 0;
-  align-content: start;
+/* Vehicle top-left, scene top-right; image menus open under each square. */
+.garage-pickers {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
-@media (min-width: 760px) {
-  .garage-body {
-    grid-template-columns: 1fr 1fr;
+.pick-tile {
+  position: relative;
+  width: clamp(86px, 26.4vw, 120px);
+  z-index: 1;
+}
+
+.pick-tile.is-open {
+  z-index: 6;
+}
+
+.pick-square {
+  appearance: none;
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 14, 0.85);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pick-square:focus-visible {
+  outline: none;
+  border-color: rgba(77, 255, 146, 0.55);
+  box-shadow: 0 0 0 2px rgba(77, 255, 146, 0.2);
+}
+
+.pick-square.is-open {
+  border-color: rgba(77, 255, 146, 0.45);
+}
+
+.pick-preview {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pick-caption {
+  position: absolute;
+  left: 0;
+  right: 26px;
+  bottom: 0;
+  padding: 12px 5px 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.78) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Chevron lives inside the square (bottom-right). */
+.pick-arrow {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pick-arrow::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid #eef2f7;
+  border-bottom: 1.5px solid #eef2f7;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.pick-square.is-open .pick-arrow::after {
+  top: 7px;
+  transform: rotate(225deg);
+  border-color: var(--accent);
+}
+
+/*
+  Image option menu. Geometry (fixed left/top/width/max-height) is set in JS
+  via #positionMenu so it always stays inside the visual viewport on phones
+  and tablets — CSS only handles look + scroll.
+*/
+.pick-menu {
+  position: fixed;
+  z-index: 40;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(77, 255, 146, 0.22);
+  background: rgba(8, 10, 14, 0.97);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Fallbacks before JS measures — still viewport-safe. */
+  left: 10px;
+  right: 10px;
+  width: auto;
+  max-width: min(280px, calc(100vw - 20px));
+  max-height: min(55vh, 360px);
+  pointer-events: auto;
+}
+
+.pick-menu[hidden] {
+  display: none;
+}
+
+/* Slightly denser options on narrow phones. */
+@media (max-width: 380px) {
+  .pick-option {
+    grid-template-columns: 44px 1fr;
+    gap: 8px;
+    padding: 5px 6px 5px 5px;
   }
+
+  .pick-thumb {
+    width: 44px;
+    height: 44px;
+  }
+
+  .pick-option-name {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 640px) {
+  .garage-pickers {
+    gap: 8px;
+  }
+
+  .pick-tile {
+    width: clamp(80px, 24vw, 112px);
+  }
+}
+
+.pick-option {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px 6px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pick-option:hover,
+.pick-option:focus-visible {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  outline: none;
+}
+
+.pick-option[aria-selected='true'] {
+  background: rgba(77, 255, 146, 0.1);
+  border-color: rgba(77, 255, 146, 0.4);
+}
+
+.pick-thumb {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+  background: #0a0c10;
+}
+
+.pick-thumb .pick-preview {
+  position: absolute;
+  inset: 0;
+}
+
+.pick-option-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pick-option-name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pick-option-sub {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Vehicle preview silhouette (CSS, paint from selected body) -------- */
+
+.pick-preview--vehicle {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 70%, rgba(255, 255, 255, 0.06), transparent 70%),
+    linear-gradient(160deg, #1a1e28 0%, #0a0c10 100%);
+}
+
+.pick-preview--vehicle .vp-body,
+.pick-preview--vehicle .vp-cabin,
+.pick-preview--vehicle .vp-wheel {
+  position: absolute;
+  display: block;
+}
+
+.pick-preview--vehicle .vp-body {
+  left: 14%;
+  right: 14%;
+  bottom: 32%;
+  height: 22%;
+  border-radius: 40% 40% 18% 18% / 70% 70% 40% 40%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--paint) 85%, #fff) 0%, var(--paint) 55%, color-mix(in srgb, var(--paint) 70%, #000) 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.pick-preview--vehicle .vp-cabin {
+  left: 30%;
+  right: 30%;
+  bottom: 48%;
+  height: 16%;
+  border-radius: 30% 30% 8% 8% / 80% 80% 20% 20%;
+  background: linear-gradient(180deg, rgba(160, 190, 220, 0.55), rgba(40, 50, 70, 0.75));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pick-preview--vehicle .vp-wheel {
+  width: 14%;
+  aspect-ratio: 1;
+  bottom: 24%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 35%, #6a7078 0 22%, transparent 24%),
+    radial-gradient(circle at 50% 50%, #2a2e36 0 38%, #0a0c10 40% 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.pick-preview--vehicle .vp-wheel--f { left: 22%; }
+.pick-preview--vehicle .vp-wheel--r { right: 22%; }
+
+/* Bike: taller / narrower silhouette */
+.pick-preview--vehicle[data-kind='bike'] .vp-body {
+  left: 32%;
+  right: 32%;
+  bottom: 30%;
+  height: 28%;
+  border-radius: 45% 45% 20% 20% / 55% 55% 35% 35%;
+}
+
+.pick-preview--vehicle[data-kind='bike'] .vp-cabin {
+  left: 38%;
+  right: 38%;
+  bottom: 52%;
+  height: 18%;
+}
+
+.pick-preview--vehicle[data-kind='bike'] .vp-wheel {
+  width: 18%;
+  bottom: 20%;
+}
+
+.pick-preview--vehicle[data-kind='bike'] .vp-wheel--f { left: 18%; }
+.pick-preview--vehicle[data-kind='bike'] .vp-wheel--r { right: 18%; }
+
+/* Truck: boxier cab + trailer */
+.pick-preview--vehicle[data-kind='truck'] .vp-body {
+  left: 12%;
+  right: 12%;
+  bottom: 30%;
+  height: 28%;
+  border-radius: 12% 18% 8% 8% / 20% 30% 20% 20%;
+}
+
+.pick-preview--vehicle[data-kind='truck'] .vp-cabin {
+  left: 12%;
+  right: 52%;
+  bottom: 48%;
+  height: 22%;
+  border-radius: 12% 20% 6% 6%;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--paint) 70%, #fff), var(--paint));
+}
+
+/* ---- Scene preview (sky / horizon / road from scene palette) ------------ */
+
+.pick-preview--scene {
+  background: #0a0c10;
+}
+
+.pick-preview--scene .sp-sky,
+.pick-preview--scene .sp-horizon,
+.pick-preview--scene .sp-ground,
+.pick-preview--scene .sp-road {
+  position: absolute;
+  display: block;
+  left: 0;
+  right: 0;
+}
+
+.pick-preview--scene .sp-sky {
+  top: 0;
+  height: 58%;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bot));
+}
+
+.pick-preview--scene .sp-horizon {
+  top: 52%;
+  height: 10%;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    color-mix(in srgb, var(--sky-bot) 50%, var(--ground))
+  );
+}
+
+.pick-preview--scene .sp-ground {
+  top: 58%;
+  bottom: 0;
+  background: linear-gradient(180deg, var(--ground), color-mix(in srgb, var(--ground) 70%, #000));
+}
+
+.pick-preview--scene .sp-road {
+  top: 62%;
+  bottom: 0;
+  left: 28%;
+  right: 28%;
+  background:
+    linear-gradient(180deg, transparent 0 8%, var(--accent) 8% 10%, transparent 10% 22%, var(--accent) 22% 24%, transparent 24%),
+    linear-gradient(180deg, var(--road), color-mix(in srgb, var(--road) 60%, #000));
+  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
+  opacity: 0.95;
+}
+
+/* Guaranteed hole for the orbiting vehicle — flex grows, no paint. */
+.garage-stage {
+  flex: 1 1 auto;
+  min-height: clamp(160px, 32vh, 420px);
+  position: relative;
+  pointer-events: none;
+  background: transparent;
+  z-index: 1;
+}
+
+.garage-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .picker h2 {
@@ -710,6 +1123,210 @@ body[data-state='countdown'] #brake-surface {
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--muted);
+}
+
+/* Speed rail */
+.picker--speed,
+.picker--parts {
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(16, 20, 28, 0.94), rgba(8, 10, 14, 0.92));
+}
+
+.picker-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.picker-head h2 {
+  margin: 0;
+}
+
+.speed-readout {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+  text-shadow: 0 0 16px rgba(77, 255, 146, 0.35);
+}
+
+.speed-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.speed-node {
+  appearance: none;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 52px;
+  padding: 10px 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 120ms, background 120ms, box-shadow 120ms;
+}
+
+.speed-node-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+}
+
+.speed-node-val {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.speed-node:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.speed-node[aria-pressed='true'] {
+  border-color: rgba(77, 255, 146, 0.6);
+  background: rgba(77, 255, 146, 0.12);
+  box-shadow: 0 0 18px rgba(77, 255, 146, 0.15);
+}
+
+.speed-node[aria-pressed='true'] .speed-node-dot {
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(77, 255, 146, 0.7);
+}
+
+.speed-node:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.credits--wallet {
+  float: none;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(77, 255, 146, 0.1);
+  border: 1px solid rgba(77, 255, 146, 0.3);
+}
+
+.part--bay {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  border-radius: 12px;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.part-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--accent);
+}
+
+.part-fitted {
+  display: block;
+  grid-column: auto;
+  grid-row: auto;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.part--bay .part-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.part--bay .btn--buy {
+  grid-row: auto;
+  align-self: center;
+  min-width: 52px;
+  border-radius: 8px;
+}
+
+.part--bay.is-maxed {
+  border-color: rgba(77, 255, 146, 0.25);
+}
+
+.btn--launch {
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 15px;
+  min-height: 48px;
+}
+
+.btn-launch-glow {
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 70%
+  );
+  animation: launch-sheen 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes launch-sheen {
+  0%,
+  100% {
+    transform: translateX(-40%);
+  }
+  50% {
+    transform: translateX(40%);
+  }
+}
+
+.best--brief {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 12px;
+}
+
+.best-stat {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.best-stat b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
+.best-stat--record b {
+  color: var(--accent);
 }
 
 .chips {
@@ -819,8 +1436,9 @@ body[data-state='countdown'] #brake-surface {
 }
 
 .garage-foot {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+  margin-top: 8px;
 }
 
 .best {
@@ -1132,7 +1750,8 @@ body[data-state='countdown'] #brake-surface {
   .result-card,
   .grade,
   .record,
-  #timeout-warn {
+  #timeout-warn,
+  .btn-launch-glow {
     animation: none;
   }
   #timeout-warn,

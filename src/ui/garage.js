@@ -4,9 +4,87 @@ import { getSurface } from '../physics/Surface.js';
 import { buildCourse } from '../core/Game.js';
 import { getBest } from '../core/Storage.js';
 import { PARTS, MAX_LEVEL, stepFor } from '../vehicles/upgrades.js';
-import { int, metres, kg, renderStats } from './format.js';
+import { int, metres } from './format.js';
 
-/** Vehicle and location pickers, plus the live course preview for the pairing. */
+/** Hex colour string from a three.js-style 0xRRGGBB number. */
+function hex(n) {
+  return `#${(n >>> 0).toString(16).padStart(6, '0')}`;
+}
+
+/** Primary paint from a vehicle body recipe (first non-glass, non-emissive part). */
+function vehiclePaint(spec) {
+  const parts = spec.body?.parts ?? [];
+  for (const p of parts) {
+    if (p.glass || p.emissive) continue;
+    if (p.color != null) return hex(p.color);
+  }
+  return '#c8d0da';
+}
+
+function vehicleAccent(spec) {
+  const parts = spec.body?.parts ?? [];
+  for (const p of parts) {
+    if (p.role === 'trim' && p.color != null) return hex(p.color);
+  }
+  return '#1a1e24';
+}
+
+function vehicleKind(spec) {
+  const cls = (spec.class ?? '').toLowerCase();
+  const id = spec.id ?? '';
+  if (cls.includes('bike') || id.includes('bike')) return 'bike';
+  if (cls.includes('truck') || id.includes('truck')) return 'truck';
+  return 'car';
+}
+
+/** CSS silhouette markup for a vehicle (reused in square + menu thumbs). */
+function vehiclePreviewHtml() {
+  return `
+    <span class="vp-body"></span>
+    <span class="vp-cabin"></span>
+    <span class="vp-wheel vp-wheel--f"></span>
+    <span class="vp-wheel vp-wheel--r"></span>
+  `;
+}
+
+/** CSS landscape markup for a scene. */
+function scenePreviewHtml() {
+  return `
+    <span class="sp-sky"></span>
+    <span class="sp-horizon"></span>
+    <span class="sp-ground"></span>
+    <span class="sp-road"></span>
+  `;
+}
+
+/** @param {HTMLElement} el @param {import('../vehicles/registry.js').VehicleSpec} spec */
+function paintVehiclePreview(el, spec) {
+  if (!el) return;
+  el.classList.add('pick-preview', 'pick-preview--vehicle');
+  el.dataset.kind = vehicleKind(spec);
+  el.style.setProperty('--paint', vehiclePaint(spec));
+  el.style.setProperty('--accent', vehicleAccent(spec));
+  el.innerHTML = vehiclePreviewHtml();
+}
+
+/** @param {HTMLElement} el @param {import('../scenes/registry.js').SceneDef} scene */
+function paintScenePreview(el, scene) {
+  if (!el) return;
+  el.classList.add('pick-preview', 'pick-preview--scene');
+  el.style.setProperty('--sky-top', hex(scene.sky?.top ?? 0x1a2030));
+  el.style.setProperty('--sky-bot', hex(scene.sky?.bottom ?? 0x405060));
+  el.style.setProperty('--ground', hex(scene.ground?.color ?? 0x2a2e36));
+  el.style.setProperty('--road', hex(scene.road?.color ?? 0x1a1e24));
+  el.style.setProperty(
+    '--accent',
+    hex(scene.ground?.accent ?? scene.road?.secondary ?? 0x4dff92),
+  );
+  el.innerHTML = scenePreviewHtml();
+}
+
+/**
+ * Garage: square pickers with in-box arrow; image menus for vehicle/scene.
+ */
 export class Garage {
   /** @param {import('../core/Game.js').Game} game */
   constructor(game, onChange) {
@@ -14,96 +92,290 @@ export class Garage {
     this.onChange = onChange;
 
     this.root = document.getElementById('garage');
-    this.vehicleList = document.getElementById('vehicle-list');
-    this.sceneList = document.getElementById('scene-list');
-    this.vehicleStats = document.getElementById('vehicle-stats');
-    this.sceneStats = document.getElementById('scene-stats');
+    this.vehicleTile = document.getElementById('vehicle-tile');
+    this.sceneTile = document.getElementById('scene-tile');
+    this.vehicleToggle = document.getElementById('vehicle-toggle');
+    this.sceneToggle = document.getElementById('scene-toggle');
+    this.vehicleMenu = document.getElementById('vehicle-menu');
+    this.sceneMenu = document.getElementById('scene-menu');
+    this.vehiclePreview = document.getElementById('vehicle-preview');
+    this.scenePreview = document.getElementById('scene-preview');
+    this.vehicleCaption = document.getElementById('vehicle-caption');
+    this.sceneCaption = document.getElementById('scene-caption');
     this.speedList = document.getElementById('speed-list');
-    this.speedHint = document.getElementById('speed-hint');
+    this.speedReadout = document.getElementById('speed-readout');
     this.bestLine = document.getElementById('best-line');
     this.partsList = document.getElementById('parts-list');
-    this.tierHint = document.getElementById('tier-hint');
     this.creditBalance = document.getElementById('credit-balance');
 
-    this.#buildChips(this.vehicleList, VEHICLES, (v) => v.class, (id) => {
-      this.game.select(id, null);
-      this.refresh();
-      this.onChange?.();
+    this.#buildVehicleMenu();
+    this.#buildSceneMenu();
+
+    this.vehicleToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = this.vehicleToggle.getAttribute('aria-expanded') !== 'true';
+      this.#setOpen('vehicle', open);
+      if (open) this.#setOpen('scene', false);
     });
 
-    this.#buildChips(this.sceneList, SCENES, (s) => getSurface(s.surface).label, (id) => {
-      this.game.select(null, id);
-      this.refresh();
-      this.onChange?.();
+    this.sceneToggle?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const open = this.sceneToggle.getAttribute('aria-expanded') !== 'true';
+      this.#setOpen('scene', open);
+      if (open) this.#setOpen('vehicle', false);
     });
+
+    // Close menus when tapping outside either tile or menu.
+    document.addEventListener('pointerdown', (e) => {
+      const t = e.target;
+      if (this.vehicleTile?.contains(t) || this.sceneTile?.contains(t)) return;
+      if (this.vehicleMenu?.contains(t) || this.sceneMenu?.contains(t)) return;
+      this.#setOpen('vehicle', false);
+      this.#setOpen('scene', false);
+    });
+
+    // Keep open menus inside the viewport on rotate / resize / chrome shifts.
+    this.onViewportChange = () => {
+      if (this.vehicleToggle?.getAttribute('aria-expanded') === 'true') {
+        this.#positionMenu(this.vehicleToggle, this.vehicleMenu);
+      }
+      if (this.sceneToggle?.getAttribute('aria-expanded') === 'true') {
+        this.#positionMenu(this.sceneToggle, this.sceneMenu);
+      }
+    };
+    window.addEventListener('resize', this.onViewportChange);
+    window.addEventListener('orientationchange', this.onViewportChange);
+    // Visual viewport (iOS URL bar) moves without a window resize.
+    window.visualViewport?.addEventListener('resize', this.onViewportChange);
+    window.visualViewport?.addEventListener('scroll', this.onViewportChange);
   }
 
-  #buildChips(container, items, subtitle, onPick) {
-    container.innerHTML = '';
-    for (const item of items) {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.dataset.id = item.id;
-      chip.setAttribute('aria-pressed', 'false');
-      chip.innerHTML = `${item.name}<small>${subtitle(item)}</small>`;
-      chip.addEventListener('click', () => onPick(item.id));
-      container.append(chip);
+  #setOpen(which, open) {
+    const toggle = which === 'vehicle' ? this.vehicleToggle : this.sceneToggle;
+    const menu = which === 'vehicle' ? this.vehicleMenu : this.sceneMenu;
+    const tile = which === 'vehicle' ? this.vehicleTile : this.sceneTile;
+    if (!toggle || !menu) return;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.classList.toggle('is-open', open);
+    tile?.classList.toggle('is-open', open);
+    menu.hidden = !open;
+    if (open) {
+      // Fixed to the viewport so #garage overflow cannot clip it, then clamped.
+      this.#positionMenu(toggle, menu);
+    } else {
+      this.#clearMenuPosition(menu);
     }
-  }
-
-  #syncPressed(container, activeId) {
-    for (const chip of container.children) {
-      chip.setAttribute('aria-pressed', String(chip.dataset.id === activeId));
-    }
+    this.root?.classList.toggle(
+      'has-menu-open',
+      this.vehicleToggle?.getAttribute('aria-expanded') === 'true' ||
+        this.sceneToggle?.getAttribute('aria-expanded') === 'true',
+    );
   }
 
   /**
-   * The speed ladder. Locked rungs are shown rather than hidden, so the player
-   * can see what they are working toward.
+   * Pin the image menu to the viewport with fixed coordinates so parent
+   * overflow / chrome cannot clip it. Prefers below the square, flips above
+   * when short on room, and clamps left/right into the safe band.
+   * @param {HTMLElement} toggle
+   * @param {HTMLElement} menu
    */
+  #positionMenu(toggle, menu) {
+    if (!toggle || !menu || menu.hidden) return;
+
+    const gap = 6;
+    const pad = 10;
+    const rect = toggle.getBoundingClientRect();
+    // visualViewport tracks the on-screen area when mobile URL bars collapse.
+    const vv = window.visualViewport;
+    const vw = vv?.width ?? window.innerWidth;
+    const vh = vv?.height ?? window.innerHeight;
+    // getBoundingClientRect is in layout viewport; offset* maps into visual.
+    const ox = vv?.offsetLeft ?? 0;
+    const oy = vv?.offsetTop ?? 0;
+
+    const menuWidth = Math.min(280, Math.max(168, vw - pad * 2));
+    const minL = ox + pad;
+    const maxR = ox + vw - pad;
+
+    // Prefer left-aligning with the tile; if that overruns, slide left.
+    let left = rect.left;
+    if (left + menuWidth > maxR) left = maxR - menuWidth;
+    if (left < minL) left = minL;
+
+    // Available room relative to the visual viewport.
+    const spaceBelow = oy + vh - rect.bottom - pad;
+    const spaceAbove = rect.top - oy - pad;
+    const preferBelow = spaceBelow >= 150 || spaceBelow >= spaceAbove;
+
+    menu.style.position = 'fixed';
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.right = 'auto';
+    menu.style.width = `${Math.round(menuWidth)}px`;
+    menu.style.zIndex = '40';
+
+    if (preferBelow) {
+      const top = rect.bottom + gap;
+      const maxHeight = Math.max(110, Math.min(spaceBelow - gap, Math.min(360, vh * 0.55)));
+      menu.style.top = `${Math.round(top)}px`;
+      menu.style.bottom = 'auto';
+      menu.style.maxHeight = `${Math.round(maxHeight)}px`;
+    } else {
+      // Distance from the layout viewport bottom to just above the tile.
+      const bottom = window.innerHeight - rect.top + gap;
+      const maxHeight = Math.max(110, Math.min(spaceAbove - gap, Math.min(360, vh * 0.55)));
+      menu.style.top = 'auto';
+      menu.style.bottom = `${Math.round(bottom)}px`;
+      menu.style.maxHeight = `${Math.round(maxHeight)}px`;
+    }
+  }
+
+  /** @param {HTMLElement|null} menu */
+  #clearMenuPosition(menu) {
+    if (!menu) return;
+    menu.style.position = '';
+    menu.style.left = '';
+    menu.style.right = '';
+    menu.style.top = '';
+    menu.style.bottom = '';
+    menu.style.width = '';
+    menu.style.maxHeight = '';
+    menu.style.zIndex = '';
+  }
+
+  #buildVehicleMenu() {
+    if (!this.vehicleMenu) return;
+    this.vehicleMenu.innerHTML = '';
+    for (const item of VEHICLES) {
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'pick-option';
+      opt.role = 'option';
+      opt.dataset.id = item.id;
+      opt.setAttribute('aria-selected', 'false');
+
+      const thumb = document.createElement('span');
+      thumb.className = 'pick-thumb';
+      thumb.setAttribute('aria-hidden', 'true');
+      const art = document.createElement('span');
+      paintVehiclePreview(art, item);
+      thumb.append(art);
+
+      const body = document.createElement('span');
+      body.className = 'pick-option-body';
+      body.innerHTML = `
+        <span class="pick-option-name">${item.name}</span>
+        <span class="pick-option-sub">${item.class ?? ''} · ${int(item.maxLaunchKph)} km/h</span>
+      `;
+
+      opt.append(thumb, body);
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.game.select(item.id, null);
+        this.#setOpen('vehicle', false);
+        this.refresh();
+        this.onChange?.();
+      });
+      this.vehicleMenu.append(opt);
+    }
+  }
+
+  #buildSceneMenu() {
+    if (!this.sceneMenu) return;
+    this.sceneMenu.innerHTML = '';
+    for (const item of SCENES) {
+      const surface = getSurface(item.surface);
+      const grip = Math.round(surface.grip * (item.gripMultiplier ?? 1) * 100);
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'pick-option';
+      opt.role = 'option';
+      opt.dataset.id = item.id;
+      opt.setAttribute('aria-selected', 'false');
+
+      const thumb = document.createElement('span');
+      thumb.className = 'pick-thumb';
+      thumb.setAttribute('aria-hidden', 'true');
+      const art = document.createElement('span');
+      paintScenePreview(art, item);
+      thumb.append(art);
+
+      const body = document.createElement('span');
+      body.className = 'pick-option-body';
+      body.innerHTML = `
+        <span class="pick-option-name">${item.name}</span>
+        <span class="pick-option-sub">${surface.label} · ${grip}% grip</span>
+      `;
+
+      opt.append(thumb, body);
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.game.select(null, item.id);
+        this.#setOpen('scene', false);
+        this.refresh();
+        this.onChange?.();
+      });
+      this.sceneMenu.append(opt);
+    }
+  }
+
+  #syncMenuSelection(menu, activeId) {
+    if (!menu) return;
+    for (const opt of menu.querySelectorAll('.pick-option')) {
+      opt.setAttribute('aria-selected', String(opt.dataset.id === activeId));
+    }
+  }
+
+  #renderVehiclePreview() {
+    const stock = this.game.stockVehicle;
+    if (this.vehicleCaption) this.vehicleCaption.textContent = stock.name;
+    paintVehiclePreview(this.vehiclePreview, stock);
+    this.#syncMenuSelection(this.vehicleMenu, this.game.vehicleId);
+  }
+
+  #renderScenePreview() {
+    const scene = this.game.scene;
+    if (this.sceneCaption) this.sceneCaption.textContent = scene.name;
+    paintScenePreview(this.scenePreview, scene);
+    this.#syncMenuSelection(this.sceneMenu, this.game.sceneId);
+  }
+
   #renderSpeeds() {
     const { game } = this;
+    if (!this.speedList) return;
     const ladder = game.ladder;
     const unlocked = game.unlockedSpeed;
-    const top = ladder[ladder.length - 1];
+
+    if (this.speedReadout) {
+      this.speedReadout.textContent = `${int(game.launchSpeedKph)} km/h`;
+    }
 
     this.speedList.innerHTML = '';
     for (const kph of ladder) {
       const locked = kph > unlocked;
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip chip--speed';
-      chip.dataset.id = String(kph);
-      chip.disabled = locked;
-      chip.setAttribute('aria-pressed', String(kph === game.launchSpeedKph));
-      if (locked) chip.setAttribute('aria-label', `${kph} km/h, locked`);
-      chip.innerHTML = locked ? `🔒 ${kph}` : `${kph}<small>km/h</small>`;
-      chip.addEventListener('click', () => {
+      const selected = kph === game.launchSpeedKph;
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = 'speed-node';
+      node.dataset.id = String(kph);
+      node.disabled = locked;
+      node.setAttribute('aria-pressed', String(selected));
+      if (locked) node.setAttribute('aria-label', `${kph} km/h, locked`);
+      node.innerHTML = `
+        <span class="speed-node-dot"></span>
+        <span class="speed-node-val">${locked ? '🔒' : kph}</span>
+      `;
+      node.addEventListener('click', () => {
         game.selectSpeed(kph);
         this.refresh();
         this.onChange?.();
       });
-      this.speedList.append(chip);
+      this.speedList.append(node);
     }
-
-    this.speedHint.textContent =
-      unlocked >= top
-        ? `Every speed unlocked on the ${game.vehicle.name}. Top speed is ${top} km/h.`
-        : `Stop cleanly to unlock ${
-            ladder[ladder.indexOf(unlocked) + 1] ?? top
-          } km/h. Ladder runs to ${top} km/h.`;
   }
 
-  /**
-   * The upgrade shop for the selected vehicle.
-   *
-   * Rebuilt wholesale on every refresh rather than diffed: it is four rows, and
-   * a purchase changes the balance, the pips, the affordability of every other
-   * row and the tier line all at once.
-   */
   #renderParts() {
     const { game } = this;
+    if (!this.partsList || !this.creditBalance) return;
     const spec = game.stockVehicle;
     const levels = game.upgrades;
     const credits = game.credits;
@@ -111,38 +383,38 @@ export class Garage {
     this.creditBalance.textContent = `${int(credits)} cr`;
     this.partsList.innerHTML = '';
 
+    const icons = { tyres: '◎', brakes: '▣', aero: '▲', chassis: '⬡' };
+
     for (const part of PARTS) {
       const level = levels[part.id] ?? 0;
       const cost = game.upgradeCost(part.id);
       const maxed = cost === null;
       const affordable = !maxed && credits >= cost;
+      const nextLabel = maxed ? 'Maxed' : stepFor(spec, part.id, level + 1).label;
+      const fitted = stepFor(spec, part.id, level).label;
 
       const row = document.createElement('div');
-      row.className = 'part';
+      row.className = `part part--bay${maxed ? ' is-maxed' : ''}${!affordable && !maxed ? ' is-locked' : ''}`;
 
       const pips = Array.from(
         { length: MAX_LEVEL },
         (_, i) => `<i class="pip${i < level ? ' pip--on' : ''}"></i>`,
       ).join('');
 
-      // The label of the level you are *on*, or of the one you would buy —
-      // "what am I about to get" is the only question this row has to answer.
-      const fitted = stepFor(spec, part.id, level).label;
-      const nextUp = maxed ? null : stepFor(spec, part.id, level + 1).label;
-
       row.innerHTML = `
+        <span class="part-icon" aria-hidden="true">${icons[part.id] ?? '●'}</span>
         <div class="part-head">
           <span class="part-name">${part.name}</span>
           <span class="part-pips" aria-label="Level ${level} of ${MAX_LEVEL}">${pips}</span>
+          <span class="part-fitted">${maxed ? fitted : nextLabel}</span>
         </div>
-        <p class="part-fitted">${maxed ? fitted : `${fitted} → <b>${nextUp}</b>`}</p>
       `;
 
       const buy = document.createElement('button');
       buy.type = 'button';
       buy.className = 'btn btn--buy';
       buy.disabled = maxed || !affordable;
-      buy.textContent = maxed ? 'Fitted' : `${int(cost)} cr`;
+      buy.textContent = maxed ? 'MAX' : `${int(cost)}`;
       if (!maxed && !affordable) buy.title = `${int(cost - credits)} cr short`;
       buy.addEventListener('click', () => {
         if (!game.buyUpgrade(part.id).ok) return;
@@ -150,90 +422,40 @@ export class Garage {
         this.onChange?.();
       });
       row.append(buy);
-
       this.partsList.append(row);
-    }
-
-    const tier = game.nextTier;
-    if (tier) {
-      const need = PARTS.filter((p) => p.id !== 'chassis' && (levels[p.id] ?? 0) < tier.level);
-      this.tierHint.textContent = need.length
-        ? `${tier.kph} km/h needs level ${tier.level} ${listNames(need)}.`
-        : `${tier.kph} km/h unlocked — pick it above.`;
-    } else if (spec.speedTiers) {
-      this.tierHint.textContent = `${game.vehicle.name} is fully built. Ladder runs to ${game.vehicle.maxLaunchKph} km/h.`;
-    } else {
-      this.tierHint.textContent = `Parts make the ${game.vehicle.name} stop shorter, but its ladder does not extend.`;
     }
   }
 
   refresh() {
     const { game } = this;
-    const spec = game.vehicle;
-    const scene = game.scene;
-
-    this.#syncPressed(this.vehicleList, spec.id);
-    this.#syncPressed(this.sceneList, scene.id);
+    this.#renderVehiclePreview();
+    this.#renderScenePreview();
     this.#renderSpeeds();
     this.#renderParts();
 
-    const course = buildCourse(spec, scene, game.launchSpeedKph);
+    const course = buildCourse(game.vehicle, game.scene, game.launchSpeedKph);
     this.course = course;
 
-    // Stats come off the *built* vehicle, so a purchase is visible here
-    // immediately — that and the target line moving are the whole feedback loop.
-    const stock = game.stockVehicle;
-    const grew = (value, base, format) =>
-      value === base ? format(value) : `${format(value)} ↑`;
-
-    renderStats(
-      this.vehicleStats,
-      {
-        'Top speed': grew(spec.maxLaunchKph, stock.maxLaunchKph, (v) => `${int(v)} km/h`),
-        Mass: grew(spec.mass, stock.mass, kg),
-        Brakes: spec.brake.abs ? (stock.brake.abs ? 'ABS' : 'ABS ↑') : 'No ABS',
-        Downforce: spec.liftCoefficient < 0 ? (spec.liftCoefficient < stock.liftCoefficient ? 'Yes ↑' : 'Yes') : 'None',
-      },
-      spec.blurb,
-    );
-
-    const surface = getSurface(scene.surface);
-    renderStats(
-      this.sceneStats,
-      {
-        Surface: surface.label,
-        Grip: `${Math.round(surface.grip * (scene.gripMultiplier ?? 1) * 100)}%`,
-        Crosswind: scene.crosswind ? `${scene.crosswind} m/s` : 'Calm',
-        'Target line': metres(course.target),
-        'Time limit': `${course.timeLimit} s`,
-      },
-      scene.blurb,
-    );
-
-    const best = getBest(spec.id, scene.id);
-    const setup = `At ${int(game.launchSpeedKph)} km/h the line is ${metres(
-      course.target,
-    )} away — brake flat out from the launch and you stop in ${metres(
-      course.ideal,
-    )}, so coast about ${course.coastSeconds.toFixed(1)} s first.`;
-    this.bestLine.innerHTML = best
-      ? `${setup} <b>Best here: ${int(best.score)}</b> (${best.errorM.toFixed(2)} m off).`
-      : setup;
+    if (this.bestLine) {
+      const best = getBest(game.vehicleId, game.sceneId);
+      const line = `<span class="best-stat">LINE <b>${metres(course.target)}</b></span>
+        <span class="best-stat">COAST <b>${course.coastSeconds.toFixed(1)}s</b></span>`;
+      this.bestLine.innerHTML = best
+        ? `${line}<span class="best-stat best-stat--record">PB <b>${int(best.score)}</b></span>`
+        : line;
+    }
   }
 
   show() {
+    this.#setOpen('vehicle', false);
+    this.#setOpen('scene', false);
     this.refresh();
     this.root.hidden = false;
   }
 
   hide() {
+    this.#setOpen('vehicle', false);
+    this.#setOpen('scene', false);
     this.root.hidden = true;
   }
-}
-
-/** "tyres, brakes and aero" — an Oxford-comma-free list for the tier hint. */
-function listNames(parts) {
-  const names = parts.map((p) => p.name.toLowerCase());
-  if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }

@@ -49,6 +49,9 @@ export class Chase {
    *   and the FOV boost instead of leaving them buzzing behind the result card
    */
   update(sim, dt, live = true) {
+    // Garage showcase shifts the film plate; always restore for a live chase.
+    if (this.camera.clearViewOffset) this.camera.clearViewOffset();
+
     const speedRatio = clamp(sim.v / 140, 0, 1.4);
 
     // Ease the rig back and down as speed builds.
@@ -137,17 +140,37 @@ export class Chase {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Static three-quarter view used in the garage. */
+  /**
+   * Slow orbit used in the garage.
+   * Framed tight so the vehicle fills the empty middle stage band between the
+   * top/bottom chrome docks — not the geometric centre of the full canvas.
+   */
   showcase(spec, time) {
     const size = Math.max(spec.wheelbase, 1.4);
-    const radius = 5 + size * 1.6;
-    this.camera.fov = this.baseFov;
+    // Close enough that the body reads as the hero; still clears body length.
+    const radius = 3.4 + size * 1.05;
+    const height = 1.15 + spec.cgHeight * 0.95;
+    // Slightly wider than the chase FOV so a phone still sees the whole car.
+    this.camera.fov = Math.min(this.baseFov + 6, 78);
     this.camera.position.set(
-      Math.sin(time * 0.32) * radius,
-      2.1 + spec.cgHeight,
-      Math.cos(time * 0.32) * radius,
+      Math.sin(time * 0.28) * radius,
+      height,
+      Math.cos(time * 0.28) * radius,
     );
-    this.camera.lookAt(0, spec.cgHeight + 0.35, 0);
+    // Look slightly below the CG so more of the car sits in the upper half of
+    // the frame — the bottom chrome dock covers the lower third of the screen.
+    this.camera.lookAt(0, spec.cgHeight * 0.55 + 0.12, 0);
+
+    // Shift the film plate so the look-at lands in the stage hole (~42% from
+    // the top), not dead-centre under the launch/parts dock.
+    const el = this.renderer.renderer?.domElement;
+    const w = el?.clientWidth || window.innerWidth;
+    const h = el?.clientHeight || window.innerHeight;
+    if (this.camera.setViewOffset && w > 0 && h > 0) {
+      // Positive y offset = use a lower slice of the film → scene moves up.
+      this.camera.setViewOffset(w, h, 0, h * 0.1, w, h);
+    }
+
     this.camera.updateProjectionMatrix();
     this.reset = true;
   }

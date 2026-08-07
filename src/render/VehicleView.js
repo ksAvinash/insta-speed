@@ -526,9 +526,16 @@ export class VehicleView {
         if (!o.isMesh) return;
         o.castShadow = quality.shadows;
         o.receiveShadow = quality.shadows;
-        // Ensure standard materials stay lit under our simple hemi/sun setup.
-        if (o.material && 'envMapIntensity' in o.material) {
-          o.material.envMapIntensity = 0.6;
+        // No cubemap in this scene — high-metalness Standard materials go
+        // nearly black and the garage car disappears. Pull metalness down and
+        // bias roughness so hemi + sun alone keep the body readable.
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) {
+          if (!m) continue;
+          if ('metalness' in m) m.metalness = Math.min(m.metalness ?? 0.4, 0.35);
+          if ('roughness' in m) m.roughness = Math.max(m.roughness ?? 0.5, 0.42);
+          if ('envMapIntensity' in m) m.envMapIntensity = 0.4;
+          m.needsUpdate = true;
         }
       });
       gltf.scene.name = `model:${spec.id}`;

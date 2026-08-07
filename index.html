@@ -94,56 +94,91 @@
     <!-- Border pulse when the run clock is under 5 s. -->
     <div id="timeout-warn" hidden aria-hidden="true"></div>
 
-    <!-- ===================== Garage ===================== -->
+    <!-- ===================== Garage =====================
+         Chrome docks top/bottom; the middle is intentionally empty so the
+         full-bleed 3D canvas (selected vehicle) reads as the hero. -->
     <section id="garage">
       <header class="garage-head">
         <h1>insta<span>·</span>speed</h1>
-        <p class="tagline">
-          Launched instantly at full speed. One job: stop on the line.
-        </p>
       </header>
 
-      <div class="garage-body">
-        <div class="picker">
-          <h2>Vehicle</h2>
-          <div id="vehicle-list" class="chips"></div>
-          <dl id="vehicle-stats" class="stats"></dl>
-        </div>
+      <div class="garage-chrome garage-chrome--top">
+        <!-- Two squares: current preview + arrow inside the box; menu options carry images. -->
+        <div class="garage-pickers">
+          <div class="pick-tile" id="vehicle-tile">
+            <button
+              type="button"
+              class="pick-square"
+              id="vehicle-toggle"
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              aria-controls="vehicle-menu"
+              aria-label="Select vehicle"
+            >
+              <div class="pick-preview pick-preview--vehicle" id="vehicle-preview" aria-hidden="true"></div>
+              <span class="pick-caption" id="vehicle-caption">—</span>
+              <span class="pick-arrow" aria-hidden="true"></span>
+            </button>
+            <div class="pick-menu" id="vehicle-menu" role="listbox" aria-label="Vehicles" hidden></div>
+          </div>
 
-        <div class="picker">
-          <h2>Location</h2>
-          <div id="scene-list" class="chips"></div>
-          <dl id="scene-stats" class="stats"></dl>
-        </div>
-
-        <div class="picker picker--wide">
-          <h2>Launch speed</h2>
-          <div id="speed-list" class="chips chips--speed"></div>
-          <p id="speed-hint" class="hint hint--speed"></p>
-        </div>
-
-        <div class="picker picker--wide">
-          <h2>
-            Upgrades
-            <output id="credit-balance" class="credits">0 cr</output>
-          </h2>
-          <div id="parts-list" class="parts"></div>
-          <p id="tier-hint" class="hint hint--speed"></p>
+          <div class="pick-tile" id="scene-tile">
+            <button
+              type="button"
+              class="pick-square"
+              id="scene-toggle"
+              aria-expanded="false"
+              aria-haspopup="listbox"
+              aria-controls="scene-menu"
+              aria-label="Select scene"
+            >
+              <div class="pick-preview pick-preview--scene" id="scene-preview" aria-hidden="true"></div>
+              <span class="pick-caption" id="scene-caption">—</span>
+              <span class="pick-arrow" aria-hidden="true"></span>
+            </button>
+            <div class="pick-menu" id="scene-menu" role="listbox" aria-label="Scenes" hidden></div>
+          </div>
         </div>
       </div>
 
-      <div class="garage-foot">
-        <div id="best-line" class="best"></div>
-        <div class="actions">
-          <button id="tilt-toggle" type="button" class="btn btn--ghost" hidden>
-            Enable tilt steering
-          </button>
-          <button id="mute-toggle" type="button" class="btn btn--ghost" aria-pressed="false">
-            Sound on
-          </button>
-          <button id="start" type="button" class="btn btn--primary">Launch</button>
+      <!-- Empty hole — no fill, no blur. Canvas shows through here. -->
+      <div class="garage-stage" aria-hidden="true"></div>
+
+      <div class="garage-chrome garage-chrome--bottom">
+        <div class="garage-bottom">
+          <div class="picker picker--wide picker--speed">
+            <div class="picker-head">
+              <h2>Launch speed</h2>
+              <span class="speed-readout" id="speed-readout">—</span>
+            </div>
+            <div id="speed-list" class="speed-rail"></div>
+          </div>
+
+          <div class="picker picker--wide picker--parts">
+            <div class="picker-head">
+              <h2>Bay</h2>
+              <output id="credit-balance" class="credits credits--wallet">0 cr</output>
+            </div>
+            <div id="parts-list" class="parts"></div>
+          </div>
         </div>
-        <p id="controls-hint" class="hint"></p>
+
+        <div class="garage-foot">
+          <div id="best-line" class="best best--brief"></div>
+          <div class="actions">
+            <button id="tilt-toggle" type="button" class="btn btn--ghost" hidden>
+              Enable tilt steering
+            </button>
+            <button id="mute-toggle" type="button" class="btn btn--ghost" aria-pressed="false">
+              Sound on
+            </button>
+            <button id="start" type="button" class="btn btn--primary btn--launch">
+              <span class="btn-launch-glow" aria-hidden="true"></span>
+              Launch
+            </button>
+          </div>
+          <p id="controls-hint" class="hint"></p>
+        </div>
       </div>
     </section>
 

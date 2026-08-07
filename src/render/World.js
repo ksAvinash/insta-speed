@@ -140,10 +140,14 @@ export class World {
 
   /** Slow orbit around the selected vehicle while in the garage. */
   showcase(spec, time) {
+    // Pin the car on the pad before the camera orbits — vehicle.update() may
+    // still spin the wheels from the idle sim, but must not walk the root.
     this.vehicle.root.position.set(0, 0, 0);
     this.vehicle.root.rotation.y = 0;
     this.vehicle.chassis.rotation.set(0, 0, 0);
+    this.vehicle.chassis.position.y = this.vehicle.chassisBaseY ?? 0;
     this.chase.showcase(spec, time);
+    this.environment.follow(0);
     this.#followContactShadow();
   }
 }

@@ -257,8 +257,10 @@ const loop = new Loop({
 
     if (game.state === 'garage') {
       showcaseTime += frameDt;
-      world.showcase(game.vehicle, showcaseTime);
+      // Spin wheels / lights from the idle sim, then pin pose + orbit camera
+      // so update() cannot walk the root off the pad.
       world.vehicle.update(showcaseSim, frameDt);
+      world.showcase(game.vehicle, showcaseTime);
     } else if (game.sim) {
       if (game.state === 'countdown') startLights.update(game.countdown);
       // The sim keeps its final state after a run ends, so everything driven by
