@@ -28,7 +28,7 @@ architecture.
 ```bash
 npm run dev        # https://localhost:5173 (HTTPS is deliberate, see below)
 npm run dev:mobile # same, bound to the LAN for phone testing
-npm test           # 136 tests, ~3s
+npm test           # 102 tests, ~2s
 npm run build      # static bundle into dist/
 ```
 
@@ -144,7 +144,7 @@ as game-design knobs, not physics:
 1,500 kg car at μ≈1.0 stops from 100 km/h in **39–43 m**. If a physics change
 moves that number outside the window, the change is wrong — not the test.
 
-`test/course.test.js` runs all 5 vehicles against all 4 scenes across the speed
+`test/course.test.js` runs all 3 vehicles against all 4 scenes across the speed
 ladder and asserts each pairing is winnable: a lane-keeping driver stays on the
 road, and the target line is reachable. It also checks that a perfectly judged
 run lands on par, that the judgement window has not grown with the ladder, and

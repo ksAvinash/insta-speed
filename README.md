@@ -65,7 +65,7 @@ speed and committing late. Pace is multiplied by precision, so stopping 200 m
 short in record time is worth nothing.
 
 The run clock sits at the top of the screen with the limit under it. Each
-pairing gets its own limit, derived from par — 12 s for a hot hatch at 100 km/h
+pairing gets its own limit, derived from par — 12 s for a hypercar at 100 km/h
 on tarmac, 48 s for a loaded truck at 320 km/h on snow. It is generous: a
 well-driven run uses at most 55% of it. What it exists to stop is shedding the
 speed early and then trickling the last stretch at walking pace to guarantee the

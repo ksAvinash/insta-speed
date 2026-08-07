@@ -1,6 +1,6 @@
 /**
  * Wet deck and a vicious crosswind. Grip is down by a third and anything with
- * a big flank — the bus especially — gets shoved across its lane while you are
+ * a big flank — the truck especially — gets shoved across its lane while you are
  * trying to place it on the line.
  * @type {import('../registry.js').SceneDef}
  */

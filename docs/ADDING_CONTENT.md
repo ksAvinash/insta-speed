@@ -170,7 +170,7 @@ explicit import list at the top:
 
 ```js
 import myCar from '../src/vehicles/specs/my-car.js';
-const VEHICLES = [hyperGt, rallyHatch, superbike, semiTruck, schoolBus, myCar];
+const VEHICLES = [hyperGt, superbike, semiTruck, myCar];
 ```
 
 It then automatically joins the full matrix, which sweeps the speed ladder and

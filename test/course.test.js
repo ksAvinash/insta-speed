@@ -8,17 +8,15 @@ import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH, SPEED_STEP_KPH }
 // The registries use `import.meta.glob`, which is a Vite transform and does not
 // exist under plain node, so the specs are imported directly here.
 import hyperGt from '../src/vehicles/specs/hyper-gt.js';
-import rallyHatch from '../src/vehicles/specs/rally-hatch.js';
 import superbike from '../src/vehicles/specs/superbike.js';
 import semiTruck from '../src/vehicles/specs/semi-truck.js';
-import schoolBus from '../src/vehicles/specs/school-bus.js';
 
 import saltFlats from '../src/scenes/defs/salt-flats.js';
 import tunnel from '../src/scenes/defs/tunnel.js';
 import coastalBridge from '../src/scenes/defs/coastal-bridge.js';
 import snowPass from '../src/scenes/defs/snow-pass.js';
 
-const VEHICLES = [hyperGt, rallyHatch, superbike, semiTruck, schoolBus];
+const VEHICLES = [hyperGt, superbike, semiTruck];
 const SCENES = [saltFlats, tunnel, coastalBridge, snowPass];
 
 /**
@@ -209,9 +207,9 @@ test('the clock catches a run nursed down to a crawl', () => {
   for (const [spec, scene, kph] of [
     [hyperGt, saltFlats, 100],
     [hyperGt, saltFlats, 600],
-    [rallyHatch, tunnel, 200],
+    [superbike, tunnel, 200],
     [superbike, tunnel, 400],
-    [schoolBus, saltFlats, 200],
+    [semiTruck, saltFlats, 200],
   ]) {
     const r = run(spec, scene, creep, kph);
     assert.equal(

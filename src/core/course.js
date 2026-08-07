@@ -30,7 +30,7 @@ export const COAST_SECONDS = 3.5;
  * The run clock.
  *
  * Every course carries its own limit rather than one global number, because par
- * ranges from under six seconds (a hot hatch at 100 km/h on tarmac) to nearly
+ * ranges from under six seconds (a hypercar at 100 km/h on tarmac) to nearly
  * half a minute (a loaded truck at 320 km/h on packed snow) — a single figure
  * would be unreachable at one end and irrelevant at the other.
  *
