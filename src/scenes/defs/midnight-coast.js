@@ -21,7 +21,13 @@ export default {
   wallOffset: 32,
 
   // Deep indigo zenith → violet horizon; cold moonlight from high and left.
-  sky: { top: 0x050816, bottom: 0x1a2744 },
+  // `moon` draws a real disc + halo; `clouds: 4` places a few night puffs.
+  sky: {
+    top: 0x050816,
+    bottom: 0x1a2744,
+    moon: { radius: 52, color: 0xf0f4ff, glow: 0xa8c0f0 },
+    clouds: 4,
+  },
   fog: { color: 0x0c1220, density: 0.0011 },
   sun: { color: 0xc8d8ff, intensity: 0.55, position: [-0.55, 0.72, -0.35] },
   ground: { color: 0x0a0e16, accent: 0x141c2a },

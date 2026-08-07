@@ -21,13 +21,22 @@ export default {
   wallOffset: 34,
 
   // Storm slate: charcoal zenith, bruised steel horizon.
-  sky: { top: 0x1a2230, bottom: 0x5a6a7c },
-  fog: { color: 0x6a7888, density: 0.0032 },
+  // Blackish-blue cloud deck + rain curtain (see Environment + Rain FX).
+  sky: {
+    top: 0x0e141c,
+    bottom: 0x3a4a5c,
+    clouds: 7,
+    cloudColor: 0x152032,
+    cloudOpacity: 0.58,
+  },
+  fog: { color: 0x4a5a6a, density: 0.0036 },
   // Weak, diffuse daylight through cloud cover.
-  sun: { color: 0xb8c4d0, intensity: 0.65, position: [0.15, 0.85, 0.25] },
+  sun: { color: 0xa8b4c0, intensity: 0.55, position: [0.15, 0.85, 0.25] },
   ground: { color: 0x2a3038, accent: 0x3a4450 },
   // Glossy wet blacktop — secondary is the pale rain-sheen streak.
   road: { color: 0x1a1e24, secondary: 0x6a7a8c },
+
+  weather: { rain: true, intensity: 0.22, wind: 1.2, fall: 22 },
 
   props: [
     {

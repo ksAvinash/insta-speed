@@ -7,6 +7,7 @@ import { Chase } from './Chase.js';
 import { TireSmoke } from '../fx/TireSmoke.js';
 import { SkidMarks } from '../fx/SkidMarks.js';
 import { SpeedLines } from '../fx/SpeedLines.js';
+import { Rain } from '../fx/Rain.js';
 import { getSurface } from '../physics/Surface.js';
 
 /**
@@ -28,6 +29,7 @@ export class World {
     this.smoke = new TireSmoke(scene, renderer.quality.smoke);
     this.skid = new SkidMarks(scene);
     this.speedLines = new SpeedLines(scene, renderer.quality.streaks ?? 70);
+    this.rain = new Rain(scene);
     this.#buildContactShadow(scene);
 
     renderer.onTierChange = (_name, quality) => {
@@ -39,6 +41,7 @@ export class World {
       if (this.currentScene && this.currentCourse) {
         this.props.build(this.currentScene, this.currentCourse, quality);
         this.environment.build(this.currentScene, this.currentCourse, quality);
+        this.rain.build(this.currentScene, quality);
       }
       if (this.currentSpec) this.vehicle.build(this.currentSpec, quality);
     };
@@ -87,6 +90,7 @@ export class World {
     this.environment.build(def, course, quality);
     this.road.build(def, course);
     this.props.build(def, course, quality);
+    this.rain.build(def, quality);
     this.smoke.setTint(getSurface(def.surface).smokeColor);
     this.smoke.reset();
     this.skid.setScene(def);
@@ -127,6 +131,7 @@ export class World {
     this.speedLines.update(sim, this.renderer.camera, dt, live);
     this.road.update(dt);
     this.environment.follow(sim.x);
+    this.rain.update(this.vehicle.root.position, dt, live);
     this.#followContactShadow();
   }
 
@@ -148,6 +153,8 @@ export class World {
     this.vehicle.chassis.position.y = this.vehicle.chassisBaseY ?? 0;
     this.chase.showcase(spec, time);
     this.environment.follow(0);
+    // Keep monsoon rain alive in the garage so the stage preview feels wet.
+    this.rain.update(this.vehicle.root.position, 1 / 60, true);
     this.#followContactShadow();
   }
 }
