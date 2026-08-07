@@ -266,19 +266,17 @@ body[data-state='countdown'] #brake-surface {
 }
 
 /* ============================ Start lights ============================ */
+/*
+ * Placement matches the real sports:
+ *   F1 / MotoGP — overhead gantry, top centre of the frame
+ *   Traffic     — trackside pole, top-right (driver's right)
+ */
 
 #start-lights {
   position: fixed;
   inset: 0;
   z-index: 4;
-  display: grid;
-  place-items: center;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse 55% 40% at 50% 42%,
-    rgba(0, 0, 0, 0.55),
-    transparent 70%
-  );
 }
 
 #start-lights[hidden] {
@@ -286,11 +284,29 @@ body[data-state='countdown'] #brake-surface {
 }
 
 .start-gantry {
+  position: absolute;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   animation: start-in 360ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+/* F1 + MotoGP: suspended above the grid, centred like the real gantry. */
+.start-gantry--f1,
+.start-gantry--motogp {
+  top: calc(var(--safe-t) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Traffic light: trackside, top-right — where a road signal sits in view. */
+.start-gantry--traffic {
+  top: calc(var(--safe-t) + 20px);
+  right: calc(var(--safe-r) + 18px);
+  left: auto;
+  transform: none;
+  gap: 8px;
 }
 
 .start-beam {
@@ -432,7 +448,36 @@ body[data-state='countdown'] #brake-surface {
 
 @keyframes start-in {
   from {
-    transform: translateY(-18px) scale(0.92);
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.start-gantry--f1,
+.start-gantry--motogp {
+  animation-name: start-in-top;
+}
+
+.start-gantry--traffic {
+  animation-name: start-in-side;
+}
+
+@keyframes start-in-top {
+  from {
+    transform: translateX(-50%) translateY(-14px) scale(0.94);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes start-in-side {
+  from {
+    transform: translateY(-12px) scale(0.94);
     opacity: 0;
   }
   to {
@@ -935,6 +980,9 @@ body[data-state='countdown'] #brake-surface {
 
 @media (prefers-reduced-motion: reduce) {
   .start-gantry,
+  .start-gantry--f1,
+  .start-gantry--motogp,
+  .start-gantry--traffic,
   #start-lights.is-go .start-caption,
   .readout--time.is-critical span {
     animation: none;
