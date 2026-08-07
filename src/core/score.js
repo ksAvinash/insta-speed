@@ -65,12 +65,18 @@ export function scoreRun({ clean, error, target, seconds, parSeconds }) {
   return { score: precisionPoints + paceBonus, accuracy, pace, precisionPoints, paceBonus };
 }
 
+const FAILURE_LABELS = {
+  crash: 'Wrecked',
+  timeout: 'Out of time',
+  offroad: 'Off the road',
+};
+
 /**
  * @param {boolean} clean
  * @param {number} error metres from the line
- * @param {'stopped'|'overshoot'|'crash'|'offroad'} outcome
+ * @param {'stopped'|'overshoot'|'crash'|'offroad'|'timeout'} outcome
  */
 export function rateRun(clean, error, outcome) {
   if (clean) return RATINGS.find((r) => error <= r.within);
-  return { grade: 'F', label: outcome === 'crash' ? 'Wrecked' : 'Failed' };
+  return { grade: 'F', label: FAILURE_LABELS[outcome] ?? 'Failed' };
 }

@@ -27,6 +27,28 @@ import { PHYSICS_DT } from '../physics/constants.js';
 export const COAST_SECONDS = 3.5;
 
 /**
+ * The run clock.
+ *
+ * Every course carries its own limit rather than one global number, because par
+ * ranges from under six seconds (a hot hatch at 100 km/h on tarmac) to nearly
+ * half a minute (a loaded truck at 320 km/h on packed snow) — a single figure
+ * would be unreachable at one end and irrelevant at the other.
+ *
+ * It is generous on purpose. The clock is not there to make a well-judged stop
+ * a race; it is there to close off the one strategy the scoring alone tolerates,
+ * which is feathering the brakes from the launch and nursing the car down to a
+ * crawl metres from the line. That run stops legally, and without a limit it can
+ * take three times as long as committing properly.
+ */
+const TIME_LIMIT_FACTOR = 1.7;
+const TIME_LIMIT_SLACK = 2;
+
+/** @param {number} parSeconds what a perfectly judged run takes */
+export function timeLimitFor(parSeconds) {
+  return Math.ceil(parSeconds * TIME_LIMIT_FACTOR + TIME_LIMIT_SLACK);
+}
+
+/**
  * The line is never placed closer than this multiple of the flat-out stopping
  * distance. Where braking alone already eats the whole time budget — a heavy
  * truck on packed snow — the time-based target would collapse onto the
@@ -144,6 +166,8 @@ export function buildCourse(spec, scene, launchSpeedKph = spec.maxLaunchKph) {
      * itself. This is par — the pace half of the score is measured against it.
      */
     runSeconds: parSeconds,
+    /** Wall-clock limit for the run. Overrun is a failure, like the wall. */
+    timeLimit: timeLimitFor(parSeconds),
     launchSpeedKph,
     wall: target + wallOffset,
     runway: target + wallOffset + 300,

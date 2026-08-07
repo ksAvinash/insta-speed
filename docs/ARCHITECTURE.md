@@ -128,6 +128,14 @@ matrix builds in well under a second).
    crosswind and the cost of steering.
 5. `runSeconds` falls out of the above: coast plus stop. That is **par**, and
    the pace half of the score is measured against it.
+6. `timeLimit` is `ceil(par × 1.7 + 2)`, rounded to whole seconds for display.
+   Overrunning it ends the run like hitting the wall does.
+
+A single global limit cannot work when par spans 6 s to 27 s across the matrix,
+so it is derived per pairing like everything else. It is deliberately loose —
+the worst well-driven run in the test matrix uses 55% of it. The clock is a
+backstop against nursing the car down to a crawl, not a race against par; pace
+scoring already handles the middle ground.
 
 Because the line sits past the flat-out stop, braking at `t=0` always leaves you
 short — the player must judge the coast. Deriving everything per vehicle *and*

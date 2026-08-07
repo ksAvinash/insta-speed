@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { VehicleSim } from '../src/physics/VehicleSim.js';
 import { PHYSICS_DT } from '../src/physics/constants.js';
-import { buildCourse, COAST_SECONDS } from '../src/core/course.js';
+import { buildCourse, timeLimitFor, COAST_SECONDS } from '../src/core/course.js';
 import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH, SPEED_STEP_KPH } from '../src/core/speeds.js';
 
 // The registries use `import.meta.glob`, which is a Vite transform and does not
@@ -31,12 +31,15 @@ function run(spec, scene, driver, launchSpeedKph) {
   const half = course.roadWidth / 2;
   let guard = 0;
 
-  while (!sim.stopped && guard++ < 120 * 900) {
+  // Outcome order mirrors Game.#checkOutcome, including the clock last, so a
+  // stop that lands on the buzzer still counts as a stop.
+  while (!sim.stopped && guard++ < 120 * 3000) {
     sim.step(PHYSICS_DT, driver(sim, course));
     if (Math.abs(sim.y) > half) {
       return { outcome: 'offroad', sim, course, maxLateral: Math.abs(sim.y) };
     }
     if (sim.x >= course.wall) return { outcome: 'crash', sim, course };
+    if (sim.elapsed >= course.timeLimit) return { outcome: 'timeout', sim, course };
   }
   return { outcome: sim.x > course.target ? 'overshoot' : 'stopped', sim, course };
 }
@@ -133,6 +136,13 @@ for (const spec of VEHICLES) {
       test(`${pair}: the target line is reachable`, () => {
         const r = run(spec, scene, makeTimedDriver(spec, scene, kph), kph);
         assert.equal(r.outcome, 'stopped', `run ended as "${r.outcome}"`);
+
+        // The clock must never be what ends a properly driven run.
+        assert.ok(
+          r.sim.elapsed <= r.course.timeLimit * 0.8,
+          `used ${r.sim.elapsed.toFixed(1)} s of a ${r.course.timeLimit} s limit`,
+        );
+
         const error = Math.abs(r.course.target - r.sim.x);
         // A crude open-loop driver should at least land in the same postcode;
         // this catches courses that are simply impossible to hit.
@@ -166,6 +176,49 @@ test('a perfectly judged run takes about par', () => {
         );
       }
     }
+  }
+});
+
+test('the time limit scales with the pairing and leaves room over par', () => {
+  for (const spec of VEHICLES) {
+    for (const scene of SCENES) {
+      for (const kph of speedLadder(spec)) {
+        const course = buildCourse(spec, scene, kph);
+        const where = `${spec.name} @ ${scene.name} @ ${kph} km/h`;
+
+        // One global limit cannot work when par runs from under 6 s to 27 s.
+        assert.equal(course.timeLimit, timeLimitFor(course.runSeconds), `${where}: limit is derived`);
+        assert.ok(
+          course.timeLimit >= course.runSeconds * 1.5,
+          `${where}: ${course.timeLimit} s limit is too tight against ${course.runSeconds.toFixed(1)} s par`,
+        );
+        assert.equal(course.timeLimit, Math.round(course.timeLimit), `${where}: limit should be whole seconds`);
+      }
+    }
+  }
+});
+
+test('the clock catches a run nursed down to a crawl', () => {
+  // The strategy the limit exists to close off: shed the speed early, then
+  // trickle the last stretch at walking pace to guarantee the line. It stops
+  // legally and, on the scoring alone, only loses the pace half.
+  const creep = (sim) => ({ steer: steerToLane(sim), brake: sim.v > 4 ? 1 : 0 });
+
+  // Calm scenes only: a superbike left crawling in a crosswind gets blown off
+  // the road before the clock ever gets to it, which is a different test.
+  for (const [spec, scene, kph] of [
+    [hyperGt, saltFlats, 100],
+    [hyperGt, saltFlats, 600],
+    [rallyHatch, tunnel, 200],
+    [superbike, tunnel, 400],
+    [schoolBus, saltFlats, 200],
+  ]) {
+    const r = run(spec, scene, creep, kph);
+    assert.equal(
+      r.outcome,
+      'timeout',
+      `${spec.name} @ ${scene.name} @ ${kph} km/h: creeping ended as "${r.outcome}"`,
+    );
   }
 });
 

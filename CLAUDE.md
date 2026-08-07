@@ -156,6 +156,11 @@ of the file. Add it there.
 that reason. The load-bearing case is that a quick stop 200 m short of the line
 scores zero: pace is multiplied by precision, never added beside it.
 
+The run clock has assertions on both sides: no properly driven run in the matrix
+may use more than 80% of its limit, and a run nursed down to a crawl must be
+caught by it. The second test only uses calm scenes — a superbike left crawling
+in a crosswind is blown off the road before the clock gets to it.
+
 Note the deliberate choice of a *lane-keeping* driver rather than a passive one.
 A car left completely unsteered in a crosswind genuinely does get blown off the
 road, so requiring the sim to drive itself would test the wrong thing.

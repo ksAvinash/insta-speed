@@ -100,6 +100,36 @@ body[data-state='countdown'] #brake-surface {
   color: var(--muted);
 }
 
+/* The run clock, between speed and distance. Smaller than either — it matters
+   only when it is nearly up, and that is what the warning states are for. */
+.readout--time {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding-top: 4px;
+}
+
+.readout--time span {
+  font-size: clamp(20px, 5.5vw, 34px);
+  color: var(--text);
+  transition: color 140ms linear;
+}
+
+.readout--time.is-tight span {
+  color: var(--warn);
+}
+
+.readout--time.is-critical span {
+  color: var(--danger);
+  animation: clock-pulse 620ms ease-in-out infinite;
+}
+
+@keyframes clock-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .readout--distance {
   text-align: right;
   flex-direction: column;
@@ -631,7 +661,8 @@ body[data-state='countdown'] #brake-surface {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #countdown span {
+  #countdown span,
+  .readout--time.is-critical span {
     animation: none;
   }
   .chip,

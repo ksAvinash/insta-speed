@@ -122,6 +122,7 @@ export class Garage {
         Grip: `${Math.round(surface.grip * (scene.gripMultiplier ?? 1) * 100)}%`,
         Crosswind: scene.crosswind ? `${scene.crosswind} m/s` : 'Calm',
         'Target line': metres(course.target),
+        'Time limit': `${course.timeLimit} s`,
       },
       scene.blurb,
     );

@@ -152,6 +152,8 @@ Prop types: `post`, `lamp`, `rock`, `tree`, `pylon`.
   braking flat out stops exactly on the line. Difficulty comes from grip, wind
   and road width. Set `coastSeconds` only if a scene genuinely needs a different
   pace.
+- **You do not set the time limit either.** It is derived from par, so a scene
+  that triples stopping distances gets a proportionally longer clock for free.
 - **Crosswind and road width are one setting, not two.** Roads are ~14 m, and at
   5 m/s the superbike — which lifts its rear wheel under braking — already
   drifts 5 m with a driver actively correcting. Raising the wind without

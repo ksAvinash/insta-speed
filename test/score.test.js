@@ -78,3 +78,22 @@ test('grades follow the error, and a failed run is an F', () => {
   assert.equal(rateRun(false, 0.1, 'crash').label, 'Wrecked');
   assert.equal(rateRun(false, 0.1, 'offroad').grade, 'F');
 });
+
+test('every failure outcome gets its own label, including the clock', () => {
+  for (const [outcome, label] of [
+    ['crash', 'Wrecked'],
+    ['timeout', 'Out of time'],
+    ['offroad', 'Off the road'],
+    ['overshoot', 'Failed'],
+  ]) {
+    const r = rateRun(false, 3, outcome);
+    assert.equal(r.grade, 'F');
+    assert.equal(r.label, label, `${outcome} should read "${label}"`);
+  }
+});
+
+test('running out of time scores nothing, however close to the line', () => {
+  // Half a metre off the line is an S-grade stop — but only if you stopped.
+  const r = scoreRun({ clean: false, error: 0.1, seconds: 30, ...course });
+  assert.equal(r.score, 0);
+});

@@ -11,6 +11,9 @@ export class Hud {
     this.speed = document.getElementById('hud-speed');
     this.distance = document.getElementById('hud-distance');
     this.distanceBox = this.distance.parentElement;
+    this.time = document.getElementById('hud-time');
+    this.timeBox = this.time.parentElement;
+    this.timeLimit = document.getElementById('hud-time-limit');
     this.gValue = document.getElementById('hud-g');
     this.tempValue = document.getElementById('hud-temp');
     this.barBrake = document.getElementById('bar-brake');
@@ -29,10 +32,19 @@ export class Hud {
     el.textContent = value;
   }
 
-  #flag(el, key, on) {
+  #flag(el, key, on, className = 'is-on') {
     if (this.last[key] === on) return;
     this.last[key] = on;
-    el.classList.toggle('is-on', on);
+    el.classList.toggle(className, on);
+  }
+
+  /**
+   * Course-dependent chrome, set once per run rather than every frame.
+   * @param {{ timeLimit: number }} course
+   */
+  setCourse(course) {
+    this.limit = course.timeLimit;
+    this.#text(this.timeLimit, 'limit', `of ${course.timeLimit} s`);
   }
 
   /**
@@ -41,6 +53,14 @@ export class Hud {
    */
   update(sim, distanceToTarget) {
     this.#text(this.speed, 'speed', String(Math.round(sim.speedKph)));
+
+    // Counting up rather than down: the number the player is judged on is the
+    // one on the result card, so it is the one to show them live. The limit
+    // sits under it, and the colour does the urgency.
+    this.#text(this.time, 'time', sim.elapsed.toFixed(1));
+    const left = (this.limit ?? Infinity) - sim.elapsed;
+    this.#flag(this.timeBox, 'tight', left <= 5, 'is-tight');
+    this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
 
     const over = distanceToTarget < 0;
     this.#text(

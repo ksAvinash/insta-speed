@@ -42,6 +42,12 @@ export class Game {
     return this.course.target - this.sim.x;
   }
 
+  /** Seconds on the clock. Never negative — the run ends when it reaches zero. */
+  get timeLeft() {
+    if (!this.sim || !this.course) return 0;
+    return Math.max(0, this.course.timeLimit - this.sim.elapsed);
+  }
+
   /** Ladder rungs for the current vehicle. */
   get ladder() {
     return speedLadder(this.vehicle);
@@ -151,6 +157,11 @@ export class Game {
     if (sim.stopped) {
       const overshot = sim.x > course.target;
       this.#finish({ outcome: overshot ? 'overshoot' : 'stopped' });
+      return;
+    }
+    // Checked last, so a stop that lands on the buzzer still counts.
+    if (sim.elapsed >= course.timeLimit) {
+      this.#finish({ outcome: 'timeout', timeoutKph: sim.speedKph });
     }
   }
 
@@ -193,6 +204,7 @@ export class Game {
       target: course.target,
       time: sim.elapsed,
       parSeconds: course.runSeconds,
+      timeLimit: course.timeLimit,
       peakRotorC: Math.max(sim.rotorTemp.front, sim.rotorTemp.rear),
       vehicleId: this.vehicleId,
       sceneId: this.sceneId,

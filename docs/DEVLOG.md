@@ -193,6 +193,12 @@ longitudinal question and should not depend on a vehicle's lateral stability.
   distance.
 - **Tyres left no evidence.** Skid marks are laid from the contact patches into
   one recycled buffer, so a lock-up is still readable after the fact.
+- **Nothing stopped a player nursing the car in.** Pace scoring docks it, but
+  shedding the speed early and trickling the last stretch at walking pace still
+  guaranteed the line — and took 171 s on a course with a 5.9 s par. Every
+  pairing now carries its own clock, `ceil(par × 1.7 + 2)`, shown live at the
+  top of the HUD. A global limit was never an option: par spans 6 s to 27 s
+  across the matrix.
 
 ## What the test matrix caught
 

@@ -6,6 +6,10 @@ const DETAIL = {
   overshoot: (r) => `Overshot the line by ${r.error.toFixed(1)} m and rolled into the run-off.`,
   crash: (r) => `Into the wall at ${Math.round(r.impactKph)} km/h. The line was ${metres(r.target)}.`,
   offroad: () => 'Left the road. Braking hard leaves nothing to steer with — ease off to correct.',
+  timeout: (r) =>
+    `Out of time at ${r.timeLimit} s, still doing ${Math.round(r.timeoutKph)} km/h ` +
+    `${metres(Math.abs(r.target - r.stoppedAt))} from the line. Brake later and harder — ` +
+    `nursing it in costs more time than it saves.`,
 };
 
 /** The post-run card. */
@@ -43,7 +47,7 @@ export class Result {
       'Launch speed': `${int(result.launchSpeedKph)} km/h`,
       'Stopped at': metres(result.stoppedAt),
       'Target line': metres(result.target),
-      'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)})`,
+      'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)}, limit ${result.timeLimit} s)`,
       'Peak rotor': `${Math.round(result.peakRotorC)}°C`,
     });
 

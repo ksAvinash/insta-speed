@@ -162,6 +162,7 @@ async function startRun() {
 
   input.reset();
   input.calibrate();
+  hud.setCourse(game.course);
   hud.show();
   hud.setHint('');
 }
@@ -218,7 +219,7 @@ bus.on('launched', () => {
 
 bus.on('result', (r) => {
   if (r.outcome === 'crash') audio.impact(1);
-  else if (r.outcome === 'offroad') audio.impact(0.5);
+  else if (r.outcome === 'offroad' || r.outcome === 'timeout') audio.impact(0.5);
 });
 
 /* ------------------------------------------------------------------- loop */
