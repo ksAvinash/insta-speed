@@ -13,8 +13,17 @@ import {
  * The whole runway is a single two-triangle plane with a repeating texture
  * rather than a pool of recycled segments — at these speeds nothing about the
  * road changes along its length, so one draw call does the entire job.
+ *
+ * A lead-in apron extends *behind* the launch (z < 0) so the car does not
+ * appear to spawn at the edge of the world, and a zebra crossing marks z = 0.
  */
 export class RoadBuilder {
+  /**
+   * Metres of road painted behind the launch point. Long enough that the
+   * chase camera and garage showcase always see asphalt under the wheels.
+   */
+  static LEAD_IN = 55;
+
   /** @param {THREE.Scene} scene */
   constructor(scene) {
     this.scene = scene;
@@ -33,25 +42,85 @@ export class RoadBuilder {
   build(def, course) {
     this.clear();
     const { roadWidth, runway, target, wall } = course;
+    const lead = RoadBuilder.LEAD_IN;
+    // Full strip: lead-in behind the start + course runway ahead.
+    const totalLen = runway + lead;
+    // Centre of the plane so it spans [-lead, runway].
+    const roadMidZ = (runway - lead) / 2;
 
-    const roadTex = makeRoadTexture(def, roadWidth, runway);
+    const roadTex = makeRoadTexture(def, roadWidth, totalLen);
     const road = new THREE.Mesh(
-      new THREE.PlaneGeometry(roadWidth, runway),
+      new THREE.PlaneGeometry(roadWidth, totalLen),
       new THREE.MeshLambertMaterial({ map: roadTex }),
     );
     road.rotation.x = -Math.PI / 2;
-    road.position.set(0, 0, runway / 2);
+    road.position.set(0, 0, roadMidZ);
     road.receiveShadow = true;
     this.#add(road);
 
     // Raised kerbs — two long boxes, one draw each. Huge readability win for
     // "still on the road" without any per-frame cost.
-    this.#buildKerbs(def, roadWidth, runway);
+    this.#buildKerbs(def, roadWidth, totalLen, roadMidZ);
 
-    if (def.tunnel) this.#buildTunnel(def, course);
+    if (def.tunnel) this.#buildTunnel(def, course, lead, totalLen, roadMidZ);
 
+    this.#buildStartMark(roadWidth);
     this.#buildTargetLine(target, roadWidth);
     this.#buildWall(wall, roadWidth);
+  }
+
+  /**
+   * Launch pad at z = 0: a zebra crossing so the start reads as a real place
+   * on the road rather than an empty void edge.
+   */
+  #buildStartMark(roadWidth) {
+    const WHITE = 0xf4f6f8;
+    const ACCENT = 0xf5d13a;
+
+    // Classic zebra: white bars across the road (X), spaced along travel (Z).
+    const barCount = 6;
+    const barW = 0.75;
+    const gap = 0.7;
+    const pitch = barW + gap;
+    const bandDepth = barCount * pitch - gap;
+    const barLen = roadWidth * 0.92;
+    const barMat = new THREE.MeshBasicMaterial({ color: WHITE, toneMapped: false });
+    const barGeo = new THREE.PlaneGeometry(barLen, barW);
+    const z0 = -bandDepth / 2 + barW / 2;
+
+    for (let i = 0; i < barCount; i++) {
+      const bar = new THREE.Mesh(barGeo, barMat);
+      bar.rotation.x = -Math.PI / 2;
+      bar.position.set(0, 0.022, z0 + i * pitch);
+      this.#add(bar, { shared: true });
+    }
+
+    // Thin lines bracketing the zebra.
+    for (const z of [-bandDepth / 2 - 0.3, bandDepth / 2 + 0.3]) {
+      const edge = new THREE.Mesh(
+        new THREE.PlaneGeometry(roadWidth * 0.96, 0.28),
+        new THREE.MeshBasicMaterial({ color: WHITE, toneMapped: false }),
+      );
+      edge.rotation.x = -Math.PI / 2;
+      edge.position.set(0, 0.023, z);
+      this.#add(edge);
+    }
+
+    // Side posts at the start grid.
+    const postMat = new THREE.MeshLambertMaterial({ color: 0x2a2e34 });
+    const postGeo = new THREE.BoxGeometry(0.35, 0.7, 0.35);
+    for (const side of [-1, 1]) {
+      const post = new THREE.Mesh(postGeo, postMat);
+      post.position.set((side * roadWidth) / 2 + side * 0.4, 0.35, 0);
+      this.#add(post, { shared: true });
+
+      const cap = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.12, 0.5),
+        new THREE.MeshBasicMaterial({ color: ACCENT, toneMapped: false }),
+      );
+      cap.position.set((side * roadWidth) / 2 + side * 0.4, 0.72, 0);
+      this.#add(cap);
+    }
   }
 
   /**
@@ -229,26 +298,26 @@ export class RoadBuilder {
     this.#add(block);
   }
 
-  #buildKerbs(def, roadWidth, runway) {
+  #buildKerbs(def, roadWidth, length, midZ) {
     const half = roadWidth / 2 + 0.18;
     // Pale / hazard-ish on bright scenes, darker on night decks.
     const pale = (def.road?.color ?? 0) > 0x888888;
     const mat = new THREE.MeshLambertMaterial({
       color: pale ? 0x1a1f24 : 0xe8e8ec,
     });
-    const geo = new THREE.BoxGeometry(0.36, 0.22, runway);
+    const geo = new THREE.BoxGeometry(0.36, 0.22, length);
     for (const side of [-1, 1]) {
       const kerb = new THREE.Mesh(geo, mat);
-      kerb.position.set(side * half, 0.1, runway / 2);
+      kerb.position.set(side * half, 0.1, midZ);
       kerb.receiveShadow = true;
       this.#add(kerb, { shared: true });
     }
   }
 
-  #buildTunnel(def, course) {
+  #buildTunnel(def, course, lead, totalLen, roadMidZ) {
     const radius = course.roadWidth * 0.78;
     const shell = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, course.runway, 20, 1, true),
+      new THREE.CylinderGeometry(radius, radius, totalLen, 20, 1, true),
       new THREE.MeshLambertMaterial({
         color: def.ground.accent ?? 0x22262c,
         side: THREE.BackSide,
@@ -257,11 +326,12 @@ export class RoadBuilder {
       }),
     );
     shell.rotation.x = Math.PI / 2;
-    shell.position.set(0, radius * 0.34, course.runway / 2);
+    shell.position.set(0, radius * 0.34, roadMidZ);
     this.#add(shell);
 
     // Sparse rib rings — InstancedMesh so hundreds stay one draw.
-    const ribCount = Math.min(80, Math.floor(course.runway / 28));
+    // Span the lead-in as well so the tunnel does not open at the car's rear.
+    const ribCount = Math.min(90, Math.floor(totalLen / 28));
     if (ribCount > 0) {
       const ribGeo = new THREE.TorusGeometry(radius * 0.98, 0.08, 6, 20);
       const ribMat = new THREE.MeshBasicMaterial({
@@ -273,7 +343,8 @@ export class RoadBuilder {
       const ribs = new THREE.InstancedMesh(ribGeo, ribMat, ribCount);
       const dummy = new THREE.Object3D();
       for (let i = 0; i < ribCount; i++) {
-        dummy.position.set(0, radius * 0.34, (i + 0.5) * (course.runway / ribCount));
+        const z = -lead + (i + 0.5) * (totalLen / ribCount);
+        dummy.position.set(0, radius * 0.34, z);
         dummy.rotation.set(Math.PI / 2, 0, 0);
         dummy.updateMatrix();
         ribs.setMatrixAt(i, dummy.matrix);
