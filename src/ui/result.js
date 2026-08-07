@@ -45,11 +45,18 @@ export class Result {
 
     renderStats(this.stats, {
       // The two halves of the score, so it is obvious what to attack next run.
+      // Pace folds in both "vs par" and remaining clock — broken out so a
+      // buzzer-beater does not look identical to a comfortable stop.
       Precision: result.clean
         ? `${int(result.precisionPoints)} · ${result.error.toFixed(2)} m off`
         : '—',
       Pace: result.clean
-        ? `${int(result.paceBonus)} · ${Math.round(result.pace * 100)}% of par`
+        ? `${int(result.paceBonus)} · ${Math.round((result.parPace ?? result.pace) * 100)}% par · ${Math.round(
+            (result.clock ?? 0) * 100,
+          )}% clock`
+        : '—',
+      'Time left': result.clean
+        ? `${seconds(result.remainingSeconds ?? Math.max(0, result.timeLimit - result.time))}`
         : '—',
       'Launch speed': `${int(result.launchSpeedKph)} km/h · ×${result.multiplier.toFixed(2)}`,
       'Stopped at': metres(result.stoppedAt),

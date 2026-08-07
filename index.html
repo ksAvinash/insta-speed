@@ -32,12 +32,14 @@
         <div class="readout readout--speed">
           <span id="hud-speed">0</span><em id="hud-speed-unit">km/h</em>
         </div>
-        <div class="readout readout--time">
-          <span id="hud-time">0.0</span><em id="hud-time-limit">of 0 s</em>
-        </div>
         <div class="readout readout--distance">
           <span id="hud-distance">0</span><em>m to line</em>
         </div>
+      </div>
+
+      <!-- Remaining seconds only, top centre; grows as the clock runs out. -->
+      <div class="readout readout--time" aria-live="polite">
+        <span id="hud-time">0</span>
       </div>
 
       <div class="hud-bars">

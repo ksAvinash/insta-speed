@@ -7,6 +7,11 @@ import { clamp } from '../physics/constants.js';
  */
 /** Seconds left when the screen border starts pulsing. */
 const TIMEOUT_WARN_FROM = 5;
+/** Below this remaining time the clock digit starts growing. */
+const CLOCK_SCALE_FROM = 10;
+/** Font size (px) at ≥10 s left / at 0 s left. */
+const CLOCK_SIZE_MIN = 28;
+const CLOCK_SIZE_MAX = 96;
 
 export class Hud {
   constructor() {
@@ -16,7 +21,6 @@ export class Hud {
     this.distanceBox = this.distance.parentElement;
     this.time = document.getElementById('hud-time');
     this.timeBox = this.time.parentElement;
-    this.timeLimit = document.getElementById('hud-time-limit');
     this.gValue = document.getElementById('hud-g');
     this.tempValue = document.getElementById('hud-temp');
     this.barBrake = document.getElementById('bar-brake');
@@ -48,7 +52,6 @@ export class Hud {
    */
   setCourse(course) {
     this.limit = course.timeLimit;
-    this.#text(this.timeLimit, 'limit', `of ${course.timeLimit} s`);
   }
 
   /**
@@ -58,11 +61,12 @@ export class Hud {
   update(sim, distanceToTarget) {
     this.#text(this.speed, 'speed', String(Math.round(sim.speedKph)));
 
-    // Counting up rather than down: the number the player is judged on is the
-    // one on the result card, so it is the one to show them live. The limit
-    // sits under it, and the colour does the urgency.
-    this.#text(this.time, 'time', sim.elapsed.toFixed(1));
-    const left = (this.limit ?? Infinity) - sim.elapsed;
+    // Countdown only — remaining whole seconds, top centre. Font scales up
+    // from 10 s left through to zero so the last moments own the frame.
+    const left = Math.max(0, (this.limit ?? 0) - sim.elapsed);
+    const display = Math.ceil(left - 1e-9); // 0.01 still reads as 1 until gone
+    this.#text(this.time, 'time', String(Math.max(0, display)));
+    this.#clockScale(left);
     this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM, 'is-tight');
     this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
     this.#timeoutBorder(left);
@@ -98,6 +102,21 @@ export class Hud {
   /** @param {string} text */
   setHint(text) {
     this.#text(this.hint, 'hint', text);
+  }
+
+  /**
+   * Grow the remaining-seconds digit from base size at ≥10 s to a large
+   * headline as the clock hits zero.
+   * @param {number} left
+   */
+  #clockScale(left) {
+    const t = left >= CLOCK_SCALE_FROM ? 0 : clamp(1 - left / CLOCK_SCALE_FROM, 0, 1);
+    // Ease in so the last few seconds jump more than 10→7.
+    const eased = t * t;
+    const px = Math.round(CLOCK_SIZE_MIN + (CLOCK_SIZE_MAX - CLOCK_SIZE_MIN) * eased);
+    if (this.last.clockSize === px) return;
+    this.last.clockSize = px;
+    this.timeBox.style.setProperty('--clock-size', `${px}px`);
   }
 
   /**
@@ -146,5 +165,7 @@ export class Hud {
     }
     this.last.timeoutBorder = false;
     this.last.timeoutUrgency = undefined;
+    this.last.clockSize = undefined;
+    this.timeBox?.style.removeProperty('--clock-size');
   }
 }

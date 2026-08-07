@@ -8,19 +8,28 @@ import {
   runMultiplier,
   creditsFor,
   firstClearBonus,
+  clockFactor,
   PRECISION_POINTS,
   PACE_POINTS,
+  PAR_WEIGHT,
+  CLOCK_WEIGHT,
 } from '../src/core/score.js';
+import { timeLimitFor } from '../src/core/course.js';
 
-/** A mid-ladder course: 500 m line, par 10 s. */
-const course = { target: 500, parSeconds: 10 };
+/** A mid-ladder course: 500 m line, par 10 s, real derived limit. */
+const parSeconds = 10;
+const timeLimit = timeLimitFor(parSeconds); // 19 s
+const course = { target: 500, parSeconds, timeLimit };
 
-const run = (patch) => scoreRun({ clean: true, error: 0, seconds: 10, ...course, ...patch });
+const run = (patch) =>
+  scoreRun({ clean: true, error: 0, seconds: parSeconds, ...course, ...patch });
 
 test('a perfect run at par scores the full hundred thousand', () => {
   const r = run({});
   assert.equal(r.score, PRECISION_POINTS + PACE_POINTS);
   assert.equal(r.accuracy, 1);
+  assert.equal(r.parPace, 1);
+  assert.equal(r.clock, 1);
   assert.equal(r.pace, 1);
 });
 
@@ -46,10 +55,13 @@ test('the same stop scores less the longer it took', () => {
   assert.ok(slow.score < quick.score, `${slow.score} should be under ${quick.score}`);
   // Only the pace half moves: precision is identical for an identical stop.
   assert.equal(slow.precisionPoints, quick.precisionPoints);
+  assert.ok(slow.clock < quick.clock, 'slow run burns more of the clock');
+  assert.ok(slow.parPace < quick.parPace, 'slow run is also worse against par');
 });
 
 test('beating par is capped rather than farmed', () => {
-  assert.equal(run({ seconds: 4 }).pace, 1, 'under par is simply full marks');
+  assert.equal(run({ seconds: 4 }).parPace, 1, 'under par is simply full marks');
+  assert.equal(run({ seconds: 4 }).clock, 1, 'extra remaining time is also capped');
   assert.equal(run({ seconds: 4 }).score, run({ seconds: 10 }).score);
 });
 
@@ -57,13 +69,15 @@ test('a fast stop miles short of the line earns almost nothing', () => {
   // The obvious exploit: brake at launch, stop 200 m short in record time. Pace
   // is gated by accuracy precisely so this cannot pay.
   const cheat = run({ error: 200, seconds: 3 });
-  assert.equal(cheat.pace, 1, 'it really was quick');
+  assert.equal(cheat.parPace, 1, 'it really was quick');
   assert.equal(cheat.score, 0, 'and worth nothing at all');
 });
 
 test('precision is worth more than pace', () => {
+  // Sloppy-at-par vs precise-but-slow (still inside the limit). Precision is
+  // 70% of the pot and squared, so a clean line should still win.
   const sloppyButQuick = run({ error: 8, seconds: 10 });
-  const preciseButSlow = run({ error: 0, seconds: 20 });
+  const preciseButSlow = run({ error: 0, seconds: 15 });
   assert.ok(
     preciseButSlow.score > sloppyButQuick.score,
     `precise ${preciseButSlow.score} should beat quick ${sloppyButQuick.score}`,
@@ -100,6 +114,46 @@ test('running out of time scores nothing, however close to the line', () => {
   // Half a metre off the line is an S-grade stop — but only if you stopped.
   const r = scoreRun({ clean: false, error: 0.1, seconds: 30, ...course });
   assert.equal(r.score, 0);
+});
+
+/* --------------------------- remaining time ---------------------------- */
+
+test('clock factor is full at par and zero at the limit', () => {
+  assert.equal(clockFactor(parSeconds, parSeconds, timeLimit), 1);
+  assert.equal(clockFactor(timeLimit, parSeconds, timeLimit), 0);
+  assert.ok(clockFactor(parSeconds + 3, parSeconds, timeLimit) < 1);
+  assert.ok(clockFactor(parSeconds + 3, parSeconds, timeLimit) > 0);
+});
+
+test('more time left on the clock scores higher for the same stop', () => {
+  // Same line, same elapsed vs a slightly longer run — the earlier stop keeps
+  // more of the limit and must outscore the buzzer-scraper.
+  const comfortable = run({ seconds: parSeconds });
+  const tight = run({ seconds: timeLimit - 1 });
+  assert.ok(comfortable.remainingSeconds > tight.remainingSeconds);
+  assert.ok(comfortable.clock > tight.clock);
+  assert.ok(
+    comfortable.score > tight.score,
+    `comfortable ${comfortable.score} should beat tight ${tight.score}`,
+  );
+  assert.equal(comfortable.precisionPoints, tight.precisionPoints);
+});
+
+test('a stop on the buzzer earns no clock credit', () => {
+  const r = run({ seconds: timeLimit });
+  assert.equal(r.clock, 0);
+  assert.equal(r.remainingSeconds, 0);
+  // Still has some par-pace if under a huge limit… here seconds == limit >> par
+  // so parPace is small too. Either way paceBonus must be well under full.
+  assert.ok(r.paceBonus < PACE_POINTS * 0.5);
+});
+
+test('pace blends par and clock with the published weights', () => {
+  const seconds = parSeconds + 4;
+  const r = run({ seconds });
+  const expected =
+    r.parPace * PAR_WEIGHT + r.clock * CLOCK_WEIGHT;
+  assert.ok(Math.abs(r.pace - expected) < 1e-9);
 });
 
 /* ------------------------------ multipliers ------------------------------ */

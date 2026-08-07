@@ -3,24 +3,30 @@ import { clamp } from '../physics/constants.js';
 /**
  * Scoring.
  *
- * Two things are worth points, and they pull against each other:
+ * Three things are worth points, and they pull against each other:
  *
  * - **Precision** — how close to the line you stopped. Squared, so the last
  *   metre is worth far more than the first ten.
- * - **Pace** — how little time the run took. The fastest way to reach a line
- *   you still have to stop on is to stay at speed and brake at the last
- *   possible moment, so this rewards committing late rather than nursing the
- *   car down early and creeping in.
+ * - **Pace** — how little time the run took versus par (coast then brake flat
+ *   out). Rewards committing late rather than nursing the car down early.
+ * - **Clock** — how much of the run limit you still had when you stopped.
+ *   Finishing with time in hand pays; scraping in on the buzzer does not.
  *
- * Pace is multiplied by precision rather than added alongside it. Otherwise the
- * quickest run available would be to stand on the brake at launch, stop 300 m
- * short in record time and collect the pace half anyway.
+ * Pace and clock are blended into one "speed" half, then multiplied by
+ * precision. Otherwise the quickest run available would be to stand on the
+ * brake at launch, stop 300 m short in record time and collect the speed half
+ * anyway — and a stop that lands with 0.1 s left would score the same as one
+ * that left half the limit unused.
  *
  * Kept free of any registry import so it stays testable under plain node.
  */
 
 export const PRECISION_POINTS = 70000;
 export const PACE_POINTS = 30000;
+
+/** Share of the speed half that comes from beating par vs saving clock. */
+export const PAR_WEIGHT = 0.55;
+export const CLOCK_WEIGHT = 0.45;
 
 /**
  * The multiplier is what makes upgrades worth buying.
@@ -87,24 +93,67 @@ export function scoringWindow(target) {
 }
 
 /**
+ * How much of the "perfect run's spare clock" you still had when you stopped.
+ *
+ * A par run leaves `timeLimit − parSeconds` on the board; that headroom is
+ * full marks. Stopping later burns it. Stopping earlier cannot exceed 1 — the
+ * same cap as beating par, so you cannot farm by inventing a shorter run.
+ *
+ * @param {number} seconds actual run time
+ * @param {number} parSeconds
+ * @param {number} timeLimit
+ */
+export function clockFactor(seconds, parSeconds, timeLimit) {
+  const remaining = Math.max(0, timeLimit - seconds);
+  const headroom = Math.max(timeLimit - parSeconds, 1e-3);
+  return clamp(remaining / headroom, 0, 1);
+}
+
+/**
  * @param {object} run
  * @param {boolean} run.clean true only for a stop on the road, short of the wall
  * @param {number} run.error metres from the target line
  * @param {number} run.target target distance, m
  * @param {number} run.seconds what the run actually took
  * @param {number} run.parSeconds what a perfectly judged run takes
+ * @param {number} [run.timeLimit] hard clock for the pairing; required for the
+ *   remaining-time half. Falls back to par-only pace if omitted (tests).
  * @param {number} [run.multiplier] speed × scene, see `runMultiplier`
  */
-export function scoreRun({ clean, error, target, seconds, parSeconds, multiplier = 1 }) {
+export function scoreRun({
+  clean,
+  error,
+  target,
+  seconds,
+  parSeconds,
+  timeLimit,
+  multiplier = 1,
+}) {
   if (!clean) {
-    return { score: 0, accuracy: 0, pace: 0, precisionPoints: 0, paceBonus: 0, multiplier };
+    return {
+      score: 0,
+      accuracy: 0,
+      pace: 0,
+      clock: 0,
+      precisionPoints: 0,
+      paceBonus: 0,
+      multiplier,
+      remainingSeconds: 0,
+    };
   }
 
   const accuracy = clamp(1 - error / scoringWindow(target), 0, 1);
   // Par is measured in still air with no steering, so a real run on a windy
   // bridge can never quite match it. Landing at or under par is simply full
   // marks rather than something to chase past.
-  const pace = clamp(parSeconds / Math.max(seconds, 0.001), 0, 1);
+  const parPace = clamp(parSeconds / Math.max(seconds, 0.001), 0, 1);
+
+  const limit = timeLimit ?? parSeconds;
+  const remainingSeconds = Math.max(0, limit - seconds);
+  const clock = timeLimit != null ? clockFactor(seconds, parSeconds, timeLimit) : parPace;
+
+  // Speed half: commit late (par) and leave time on the clock (remaining).
+  const pace = parPace * PAR_WEIGHT + clock * CLOCK_WEIGHT;
 
   // The multiplier scales both halves, so it can never rescue a run that missed
   // — a stop 200 m short still multiplies out to zero.
@@ -115,9 +164,12 @@ export function scoreRun({ clean, error, target, seconds, parSeconds, multiplier
     score: precisionPoints + paceBonus,
     accuracy,
     pace,
+    parPace,
+    clock,
     precisionPoints,
     paceBonus,
     multiplier,
+    remainingSeconds,
   };
 }
 

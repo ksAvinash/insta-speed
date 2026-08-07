@@ -261,14 +261,16 @@ export class Game {
     const clean = partial.outcome === 'stopped';
 
     const multiplier = runMultiplier(this.launchSpeedKph, this.scene.scoreMultiplier ?? 1);
-    const { score, accuracy, pace, precisionPoints, paceBonus } = scoreRun({
-      clean,
-      error,
-      target: course.target,
-      seconds: sim.elapsed,
-      parSeconds: course.runSeconds,
-      multiplier,
-    });
+    const { score, accuracy, pace, parPace, clock, precisionPoints, paceBonus, remainingSeconds } =
+      scoreRun({
+        clean,
+        error,
+        target: course.target,
+        seconds: sim.elapsed,
+        parSeconds: course.runSeconds,
+        timeLimit: course.timeLimit,
+        multiplier,
+      });
     const rating = rateRun(clean, error, partial.outcome);
 
     const isRecord = clean && recordBest(this.vehicleId, this.sceneId, score, error);
@@ -293,6 +295,8 @@ export class Game {
       score,
       accuracy,
       pace,
+      parPace,
+      clock,
       precisionPoints,
       paceBonus,
       multiplier,
@@ -311,6 +315,7 @@ export class Game {
       time: sim.elapsed,
       parSeconds: course.runSeconds,
       timeLimit: course.timeLimit,
+      remainingSeconds,
       peakRotorC: Math.max(sim.rotorTemp.front, sim.rotorTemp.rear),
       vehicleId: this.vehicleId,
       sceneId: this.sceneId,
