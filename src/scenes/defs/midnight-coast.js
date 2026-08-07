@@ -73,5 +73,18 @@ export default {
       bothSides: true,
       emissive: true,
     },
+    {
+      // One small square stud at the end of each dashed centre-line stripe.
+      // Road texture: TILE_METRES=24, two dashes/tile → every 12 m; dash ends ~9.5 m into tile.
+      type: 'road_stud',
+      spacing: 12,
+      offset: 9.5,
+      lateral: 0,
+      height: 0.08,
+      color: 0xe8f0ff,
+      bothSides: false,
+      emissive: true,
+      scale: 0.85,
+    },
   ],
 };

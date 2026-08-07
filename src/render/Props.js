@@ -67,6 +67,10 @@ function geometryFor(entry) {
     case 'runway_light':
       return new THREE.BoxGeometry(0.4 * scale, h || 0.2, 0.55 * scale);
 
+    case 'road_stud':
+      // Small square pavement light — flat, equal footprint.
+      return new THREE.BoxGeometry(0.32 * scale, Math.min(h || 0.08, 0.12), 0.32 * scale);
+
     case 'snow_bank': {
       // Low wedge bank rather than a flat box.
       const geo = new THREE.BoxGeometry(4.2 * scale, h, 7 * scale);
@@ -117,14 +121,27 @@ function geometryFor(entry) {
 const HANGING = new Set(['lamp']);
 
 /** Low fixtures that sit on the deck rather than standing as posts. */
-const DECK_LEVEL = new Set(['cat_eye_led', 'runway_light', 'magnetic_guide_rail', 'snow_bank']);
+const DECK_LEVEL = new Set([
+  'cat_eye_led',
+  'runway_light',
+  'road_stud',
+  'magnetic_guide_rail',
+  'snow_bank',
+]);
 
 /**
  * Dense, tiny markers that never leave the near field of the road. Their
  * combined bounding volume spans the whole runway, so frustum culling cannot
  * help — they are the ones the instance budget has to thin first.
  */
-const DENSE = new Set(['cat_eye_led', 'runway_light', 'magnetic_guide_rail', 'post', 'distance_marker']);
+const DENSE = new Set([
+  'cat_eye_led',
+  'runway_light',
+  'road_stud',
+  'magnetic_guide_rail',
+  'post',
+  'distance_marker',
+]);
 
 /**
  * Compound geometries already place their own origin at ground level, so the
@@ -173,7 +190,10 @@ export class Props {
     for (const entry of def.props) {
       const sides = entry.bothSides ? [-1, 1] : [1];
       const spacing = effectiveSpacing(entry, course, horizon, sides.length);
-      const count = Math.ceil(course.runway / spacing) * sides.length;
+      // Optional start offset (m) so lights can sit on dash ends, etc.
+      const startZ = entry.offset ?? 0;
+      const span = Math.max(0, course.runway - startZ);
+      const count = Math.ceil(span / spacing) * sides.length;
       if (count <= 0) continue;
 
       const geo = geometryFor(entry);
@@ -191,14 +211,21 @@ export class Props {
       mesh.frustumCulled = !DENSE.has(entry.type);
 
       let i = 0;
-      for (let z = 0; z < course.runway; z += spacing) {
+      for (let z = startZ; z < course.runway; z += spacing) {
         for (const side of sides) {
           const scatter = entry.scatter ? (rand() - 0.5) * entry.scatter : 0;
           const lateral = entry.lateral ?? course.roadWidth / 2 + 2;
           const height = propCentreY(entry);
 
           dummy.position.set(side * (lateral + Math.abs(scatter)), height, z + scatter);
-          dummy.rotation.set(0, entry.type === 'windsock' ? 0 : rand() * Math.PI, 0);
+          // Keep deck studs square-on; random yaw muddies a centre-line.
+          const yaw =
+            entry.type === 'windsock'
+              ? 0
+              : DECK_LEVEL.has(entry.type)
+                ? 0
+                : rand() * Math.PI;
+          dummy.rotation.set(0, yaw, 0);
           dummy.updateMatrix();
           if (i < count) mesh.setMatrixAt(i++, dummy.matrix);
         }
