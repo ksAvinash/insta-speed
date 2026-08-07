@@ -28,6 +28,13 @@ game.selectFastestUnlocked();
 
 const garage = new Garage(game, () => {
   world.buildVehicle(game.vehicle);
+  // Location owns the sky, fog, ground and props. Vehicle/part/speed picks leave
+  // the runway alone so the garage stays snappy — only rebuild when the scene
+  // actually changes. `refresh()` always runs before this, so `garage.course`
+  // is the live pairing the target line and props should match.
+  if (world.currentScene?.id !== game.sceneId && garage.course) {
+    world.buildScene(game.scene, garage.course);
+  }
   // Fitting a part changes the spec the showcase is posed from, so the standing
   // sim is rebuilt here as well as on entering the garage.
   showcaseSim = new VehicleSim(game.vehicle, game.scene, {
