@@ -110,57 +110,53 @@ body[data-state='countdown'] #brake-surface {
 }
 
 /* Remaining-seconds clock: top centre, only once ≤9 s left.
-   SVG outline digit (fill=none) — CSS text-stroke still paints a dark body. */
+   SVG outline digit (fill=none). Stroke colour is also set as SVG attributes
+   in JS — iOS Safari is unreliable with CSS stroke on <text>. */
 .readout--time {
-  position: absolute;
-  top: calc(var(--safe-t) + var(--pad));
+  position: fixed;
+  top: calc(var(--safe-t) + 10px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1;
+  z-index: 5;
   --pulse: 0.9s;
   --urgency: 0;
-  --clock-stroke: #ffffff;
   text-shadow: none;
   pointer-events: none;
 }
 
 .readout--time[hidden] {
-  display: none;
+  display: none !important;
 }
 
 .clock-svg {
-  width: clamp(72px, 18vw, 110px);
-  height: clamp(66px, 16.5vw, 100px);
+  width: clamp(80px, 22vw, 120px);
+  height: auto;
+  aspect-ratio: 140 / 120;
   overflow: visible;
   display: block;
 }
 
 .clock-digit {
   font-family:
-    'Arial Black', 'Helvetica Neue', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+    system-ui, -apple-system, 'Segoe UI', 'Arial Black', 'Helvetica Neue', Impact, sans-serif;
   font-size: 96px;
   font-weight: 900;
   font-style: italic;
-  fill: none;
-  stroke: var(--clock-stroke);
-  stroke-width: 3.5;
-  stroke-linejoin: round;
-  stroke-linecap: round;
+  /* Attributes on the node are the source of truth; CSS reinforces fill. */
+  fill: none !important;
   paint-order: stroke;
-  transition: stroke 140ms linear;
 }
 
 /* 5 s → 0: same pulse animation + period as #timeout-warn. */
 .readout--time.is-tight {
-  --clock-stroke: #ffc448;
   animation: timeout-border-pulse var(--pulse) ease-in-out infinite;
 }
 
 .readout--time.is-critical {
-  --clock-stroke: #ff5046;
+  /* stroke colour handled in JS for Safari */
 }
 
 .readout--distance {

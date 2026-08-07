@@ -40,13 +40,24 @@
       <!-- Remaining seconds, top centre — only once ≤9 s left.
            SVG text with fill=none so the digit is a true hollow outline. -->
       <div class="readout readout--time" hidden aria-live="polite">
-        <svg class="clock-svg" viewBox="0 0 120 110" aria-hidden="true">
+        <svg
+          class="clock-svg"
+          viewBox="0 0 140 120"
+          width="110"
+          height="94"
+          aria-hidden="true"
+        >
           <text
             id="hud-time"
             class="clock-digit"
-            x="60"
-            y="88"
+            x="70"
+            y="95"
             text-anchor="middle"
+            fill="none"
+            stroke="#ffffff"
+            stroke-width="4"
+            stroke-linejoin="round"
+            stroke-linecap="round"
           >0</text>
         </svg>
       </div>

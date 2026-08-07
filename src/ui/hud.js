@@ -16,8 +16,10 @@ export class Hud {
     this.speed = document.getElementById('hud-speed');
     this.distance = document.getElementById('hud-distance');
     this.distanceBox = this.distance.parentElement;
+    // Digit is an SVG <text>; the visible shell is the .readout--time wrapper.
+    // parentElement would be the <svg>, which must not receive [hidden]/is-tight.
     this.time = document.getElementById('hud-time');
-    this.timeBox = this.time.parentElement;
+    this.timeBox = this.time?.closest('.readout--time') ?? this.time?.parentElement;
     this.gValue = document.getElementById('hud-g');
     this.tempValue = document.getElementById('hud-temp');
     this.barBrake = document.getElementById('bar-brake');
@@ -66,8 +68,12 @@ export class Hud {
     if (left <= CLOCK_VISIBLE_FROM) {
       const display = Math.ceil(left - 1e-9); // 0.01 still reads as 1 until gone
       this.#text(this.time, 'time', String(Math.max(0, display)));
-      this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM && left > 0, 'is-tight');
-      this.#flag(this.timeBox, 'critical', left <= 2 && left > 0, 'is-critical');
+      const tight = left <= TIMEOUT_WARN_FROM && left > 0;
+      const critical = left <= 2 && left > 0;
+      this.#flag(this.timeBox, 'tight', tight, 'is-tight');
+      this.#flag(this.timeBox, 'critical', critical, 'is-critical');
+      // Safari often ignores CSS stroke on SVG <text> — set attributes too.
+      this.#clockStroke(critical ? '#ff5046' : tight ? '#ffc448' : '#ffffff');
     }
     this.#timeoutWarn(left);
 
@@ -110,11 +116,21 @@ export class Hud {
     if (this.last.clockVisible === show) return;
     this.last.clockVisible = show;
     this.timeBox.hidden = !show;
+    // iOS Safari can leave [hidden] stuck; force display for absolute clock.
+    this.timeBox.style.display = show ? 'flex' : 'none';
     if (!show) {
       this.timeBox.classList.remove('is-tight', 'is-critical');
       this.last.tight = false;
       this.last.critical = false;
     }
+  }
+
+  /** @param {string} color */
+  #clockStroke(color) {
+    if (this.last.clockStroke === color) return;
+    this.last.clockStroke = color;
+    this.time.setAttribute('stroke', color);
+    this.time.setAttribute('fill', 'none');
   }
 
   /**
@@ -165,6 +181,7 @@ export class Hud {
     this.root.hidden = false;
     // Stay hidden until the run is inside the final 9 s.
     this.timeBox.hidden = true;
+    this.timeBox.style.display = 'none';
     this.last.clockVisible = false;
   }
 
@@ -175,12 +192,14 @@ export class Hud {
       this.timeoutWarn.classList.remove('is-critical');
     }
     this.timeBox.hidden = true;
+    this.timeBox.style.display = 'none';
     this.timeBox.classList.remove('is-tight', 'is-critical');
     this.timeBox.style.removeProperty('--pulse');
     this.timeBox.style.removeProperty('--urgency');
     this.last.timeoutBorder = false;
     this.last.timeoutUrgency = undefined;
     this.last.clockVisible = undefined;
+    this.last.clockStroke = undefined;
     this.last.tight = false;
     this.last.critical = false;
   }
