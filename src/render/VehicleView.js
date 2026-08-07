@@ -11,10 +11,37 @@ import { worldX, worldYaw } from './trackFrame.js';
  * in over the top. Both paths produce the same node layout, so nothing
  * downstream cares which was used.
  *
- * Materials stay cheap on low tier (Lambert). Medium/high use Standard on body
- * paint only — the world around the car stays Lambert so fill cost does not
- * scale with scenery.
+ * Fitted upgrades (`spec.upgradeLevels` from `applyUpgrades`) change the look
+ * as well as the numbers: wider/stickier tyres, coloured calipers, aero bits
+ * and a carbon-leaning chassis. Stock (no levels on the object) reads as level 0.
  */
+
+/** @param {import('../vehicles/registry.js').VehicleSpec} spec */
+function levelsOf(spec) {
+  const L = spec.upgradeLevels;
+  return {
+    tyres: L?.tyres ?? 0,
+    brakes: L?.brakes ?? 0,
+    aero: L?.aero ?? 0,
+    chassis: L?.chassis ?? 0,
+  };
+}
+
+/** Tyre compound look by level: stock → sport → track → slick. */
+const TYRE_LOOK = [
+  { widthMul: 1.0, tyre: 0x18181c, stripe: 0x9a9aa4, rim: null },
+  { widthMul: 1.07, tyre: 0x121218, stripe: 0xc9a227, rim: 0x7a8088 },
+  { widthMul: 1.13, tyre: 0x0c0c10, stripe: 0xe24b3a, rim: 0x6a7078 },
+  { widthMul: 1.2, tyre: 0x08080c, stripe: 0xf2f2f6, rim: 0xc4a574 },
+];
+
+/** Brake caliper / disc look by level. */
+const BRAKE_LOOK = [
+  null, // stock — no extra caliper hardware
+  { caliper: 0x8a9098, disc: 0x6a7078, scale: 1.0 },
+  { caliper: 0xe8a020, disc: 0x9aa0a8, scale: 1.15 },
+  { caliper: 0xd4ff4d, disc: 0xc8ccd0, scale: 1.3 },
+];
 
 /** A box with its top face tapered in, which reads as a cabin or a fairing. */
 function makeWedge(w, h, d) {
@@ -48,9 +75,23 @@ function geometryForPart(part) {
 /**
  * @param {object} part
  * @param {{ pixelRatio?: number, shadows?: boolean }} quality
+ * @param {number} chassisLevel
  */
-function materialForPart(part, quality) {
-  const color = part.color ?? 0xcccccc;
+function materialForPart(part, quality, chassisLevel = 0) {
+  let color = part.color ?? 0xcccccc;
+
+  // Carbon tub: pull body paint toward dark matte carbon without rewriting
+  // every recipe. Trim gets even more graphite.
+  if (chassisLevel >= 2 && !part.glass && !part.emissive) {
+    const c = new THREE.Color(color);
+    if (chassisLevel >= 3) {
+      c.offsetHSL(0, -0.15, -0.12);
+      if (part.role === 'trim' || part.role === 'matte') c.offsetHSL(0, -0.1, -0.08);
+    } else {
+      c.offsetHSL(0, -0.08, -0.06);
+    }
+    color = c.getHex();
+  }
 
   if (part.glass) {
     return new THREE.MeshLambertMaterial({
@@ -63,21 +104,19 @@ function materialForPart(part, quality) {
   }
 
   if (part.emissive) {
-    // Headlights / LED strips: unlit so they punch through any ambient.
     return new THREE.MeshBasicMaterial({
       color: part.emissive,
       toneMapped: false,
     });
   }
 
-  // Body paint on medium/high — Standard is paid for once per car mesh, not
-  // for the whole world. Low tier stays Lambert.
   const rich = (quality.pixelRatio ?? 1) >= 1.5 && part.role !== 'matte';
   if (rich) {
+    const carbon = chassisLevel >= 3 && part.role !== 'matte';
     return new THREE.MeshStandardMaterial({
       color,
-      metalness: part.metalness ?? (part.role === 'trim' ? 0.75 : 0.28),
-      roughness: part.roughness ?? (part.role === 'trim' ? 0.35 : 0.48),
+      metalness: part.metalness ?? (part.role === 'trim' ? 0.75 : carbon ? 0.55 : 0.28),
+      roughness: part.roughness ?? (part.role === 'trim' ? 0.35 : carbon ? 0.55 : 0.48),
     });
   }
 
@@ -104,6 +143,8 @@ export class VehicleView {
     this.wheelSpin = 0;
     this.dive = 0;
     this.roll = 0;
+    /** Ride-height offset from chassis upgrades (negative = lower). */
+    this.chassisBaseY = 0;
   }
 
   /** @param {import('../vehicles/registry.js').VehicleSpec} spec */
@@ -111,10 +152,12 @@ export class VehicleView {
     this.clear();
     this.spec = spec;
     this.quality = quality;
+    this.levels = levelsOf(spec);
+    this.chassisBaseY = -0.018 * this.levels.chassis;
 
     for (const part of spec.body.parts) {
       const geo = geometryForPart(part);
-      const mat = materialForPart(part, quality);
+      const mat = materialForPart(part, quality, this.levels.chassis);
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(...part.pos);
       if (part.rot) mesh.rotation.set(...part.rot);
@@ -125,28 +168,58 @@ export class VehicleView {
 
     this.#buildWheels(spec, quality);
     this.#buildBrakeLights(spec, quality);
+    this.#buildAeroKit(spec, quality);
+    this.#buildChassisKit(spec, quality);
 
     if (spec.model) this.#loadModel(spec, quality);
   }
 
+  #addChassisMesh(geo, mat, pos, quality, cast = true) {
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(pos[0], pos[1], pos[2]);
+    if (pos[3] != null) mesh.rotation.set(pos[3], pos[4] ?? 0, pos[5] ?? 0);
+    mesh.castShadow = quality.shadows && cast;
+    this.chassis.add(mesh);
+    this.disposables.push(mesh);
+    return mesh;
+  }
+
   #buildWheels(spec, quality) {
     const w = spec.body.wheels;
-    const tyreGeo = new THREE.CylinderGeometry(w.radius, w.radius, w.width, 18);
+    const look = TYRE_LOOK[clamp(this.levels.tyres, 0, 3)];
+    const width = w.width * look.widthMul;
+    const rimColor = look.rim ?? w.rimColor ?? 0x8a909a;
+
+    const tyreGeo = new THREE.CylinderGeometry(w.radius, w.radius, width, 18);
     tyreGeo.rotateZ(Math.PI / 2);
-    const tyreMat = new THREE.MeshLambertMaterial({ color: w.color ?? 0x18181c });
+    const tyreMat = new THREE.MeshLambertMaterial({ color: look.tyre });
 
-    // Rim + hub read as a wheel rather than a black drum; the pale tread stripe
-    // still sells rotation and lock-up at a glance.
-    const rimGeo = new THREE.CylinderGeometry(w.radius * 0.62, w.radius * 0.62, w.width * 0.55, 14);
+    const rimGeo = new THREE.CylinderGeometry(w.radius * 0.62, w.radius * 0.62, width * 0.55, 14);
     rimGeo.rotateZ(Math.PI / 2);
-    const rimMat = new THREE.MeshLambertMaterial({ color: w.rimColor ?? 0x8a909a });
+    const rimMat = new THREE.MeshLambertMaterial({ color: rimColor });
 
-    const hubGeo = new THREE.CylinderGeometry(w.radius * 0.22, w.radius * 0.22, w.width * 0.7, 10);
+    const hubGeo = new THREE.CylinderGeometry(w.radius * 0.22, w.radius * 0.22, width * 0.7, 10);
     hubGeo.rotateZ(Math.PI / 2);
     const hubMat = new THREE.MeshLambertMaterial({ color: 0x2a2e36 });
 
-    const markGeo = new THREE.BoxGeometry(w.width * 1.04, w.radius * 1.92, w.radius * 0.14);
-    const markMat = new THREE.MeshBasicMaterial({ color: 0x9a9aa4 });
+    const markGeo = new THREE.BoxGeometry(width * 1.04, w.radius * 1.92, w.radius * 0.14);
+    const markMat = new THREE.MeshBasicMaterial({ color: look.stripe });
+
+    // Shared caliper / disc pieces for brake upgrades — parented to the hub so
+    // they steer with the wheel; at speed they read as a coloured blur.
+    const brake = BRAKE_LOOK[clamp(this.levels.brakes, 0, 3)];
+    let discGeo;
+    let discMat;
+    let caliperGeo;
+    let caliperMat;
+    if (brake) {
+      discGeo = new THREE.CylinderGeometry(w.radius * 0.72, w.radius * 0.72, width * 0.12, 16);
+      discGeo.rotateZ(Math.PI / 2);
+      discMat = new THREE.MeshLambertMaterial({ color: brake.disc });
+      const cs = 0.14 * brake.scale;
+      caliperGeo = new THREE.BoxGeometry(width * 0.35, cs * 2.2, cs * 3.2);
+      caliperMat = new THREE.MeshLambertMaterial({ color: brake.caliper });
+    }
 
     const lateral = w.track > 0 ? [-w.track / 2, w.track / 2] : [0];
     for (const [z, steers] of [
@@ -164,13 +237,21 @@ export class VehicleView {
         hub.add(new THREE.Mesh(hubGeo, hubMat));
         hub.add(new THREE.Mesh(markGeo, markMat));
 
+        if (brake) {
+          hub.add(new THREE.Mesh(discGeo, discMat));
+          const cal = new THREE.Mesh(caliperGeo, caliperMat);
+          // Sit on the top of the disc so the colour is readable in the garage.
+          cal.position.set(0, w.radius * 0.55, 0);
+          hub.add(cal);
+        }
+
         this.root.add(hub);
         this.wheels.push({ mesh: hub, steers });
       }
     }
 
-    // Shared geometries/materials disposed once in clear().
     this._wheelShared = [tyreGeo, tyreMat, rimGeo, rimMat, hubGeo, hubMat, markGeo, markMat];
+    if (brake) this._wheelShared.push(discGeo, discMat, caliperGeo, caliperMat);
   }
 
   #buildBrakeLights(spec, quality) {
@@ -184,7 +265,6 @@ export class VehicleView {
     const xs = dual ? [-track, track] : [0];
 
     for (const x of xs) {
-      // Per-light geometry so clear() can dispose each mesh safely.
       const mat = new THREE.MeshBasicMaterial({ color: 0x3a0c0c, toneMapped: false });
       const light = new THREE.Mesh(new THREE.BoxGeometry(size[0], size[1], size[2]), mat);
       light.position.set(x, y, z);
@@ -192,8 +272,6 @@ export class VehicleView {
       this.brakeLights.push(light);
       this.disposables.push(light);
 
-      // Soft additive halo — fake bloom without a post stack. Medium+ only so
-      // low tier keeps the draw count tight.
       if ((quality.pixelRatio ?? 1) >= 1.5) {
         const glowMat = new THREE.MeshBasicMaterial({
           color: 0xff2a1a,
@@ -213,18 +291,201 @@ export class VehicleView {
     }
   }
 
+  /**
+   * Aero ladder: lip → wing → full kit. Anchored to the wheelbox so it fits
+   * every vehicle without per-spec art.
+   */
+  #buildAeroKit(spec, quality) {
+    const level = this.levels.aero;
+    if (level <= 0) return;
+
+    const w = spec.body.wheels;
+    const track = Math.max(w.track, 0.5);
+    const front = w.front;
+    const rear = w.rear;
+    const isBike = w.track === 0;
+    const carbon = new THREE.MeshLambertMaterial({ color: 0x1a1c22 });
+    const accent = new THREE.MeshLambertMaterial({ color: 0x2a2e38 });
+
+    if (level >= 1) {
+      // Front splitter / lip.
+      const sw = isBike ? 0.42 : track * 1.05;
+      this.#addChassisMesh(
+        new THREE.BoxGeometry(sw, 0.05, 0.38),
+        carbon,
+        [0, 0.12, front + 0.55],
+        quality,
+      );
+      if (!isBike) {
+        // Canards
+        for (const side of [-1, 1]) {
+          this.#addChassisMesh(
+            new THREE.BoxGeometry(0.28, 0.04, 0.22),
+            accent,
+            [side * (track * 0.55), 0.28, front + 0.35],
+            quality,
+          );
+        }
+      }
+    }
+
+    if (level >= 2) {
+      // Rear wing blade + endplates (or a centre stalk on the bike).
+      const wingW = isBike ? 0.55 : track * 1.05;
+      const wingY = isBike ? 1.05 : 0.95;
+      const wingZ = rear - (isBike ? 0.15 : 0.35);
+      this.#addChassisMesh(new THREE.BoxGeometry(wingW, 0.06, 0.36), carbon, [0, wingY, wingZ], quality);
+      if (isBike) {
+        this.#addChassisMesh(
+          new THREE.BoxGeometry(0.06, 0.28, 0.08),
+          accent,
+          [0, wingY - 0.16, wingZ + 0.05],
+          quality,
+        );
+      } else {
+        for (const side of [-1, 1]) {
+          this.#addChassisMesh(
+            new THREE.BoxGeometry(0.06, 0.32, 0.34),
+            accent,
+            [side * (wingW * 0.5), wingY - 0.1, wingZ],
+            quality,
+          );
+        }
+      }
+    }
+
+    if (level >= 3) {
+      // Side skirts + rear diffuser fins.
+      if (!isBike) {
+        for (const side of [-1, 1]) {
+          this.#addChassisMesh(
+            new THREE.BoxGeometry(0.1, 0.12, Math.abs(front - rear) * 0.85),
+            carbon,
+            [side * (track * 0.55 + 0.08), 0.18, (front + rear) * 0.5],
+            quality,
+          );
+        }
+        for (let i = -2; i <= 2; i++) {
+          this.#addChassisMesh(
+            new THREE.BoxGeometry(0.04, 0.1, 0.35),
+            accent,
+            [i * 0.18, 0.12, rear - 0.55],
+            quality,
+          );
+        }
+      } else {
+        // Bike: belly pan extension + hugger.
+        this.#addChassisMesh(new THREE.BoxGeometry(0.3, 0.08, 0.7), carbon, [0, 0.32, 0.1], quality);
+        this.#addChassisMesh(new THREE.BoxGeometry(0.28, 0.1, 0.35), accent, [0, 0.55, rear - 0.05], quality);
+      }
+    }
+  }
+
+  /**
+   * Chassis ladder: lower stance, carbon accents, then cage / lightweight bits.
+   */
+  #buildChassisKit(spec, quality) {
+    const level = this.levels.chassis;
+    if (level <= 0) return;
+
+    const w = spec.body.wheels;
+    const track = Math.max(w.track, 0.35);
+    const isBike = w.track === 0;
+    const carbon = new THREE.MeshLambertMaterial({ color: 0x14161c });
+    const bolt = new THREE.MeshLambertMaterial({ color: 0x3a3e48 });
+
+    if (level >= 1 && !isBike) {
+      // Lightweight door inners / stripped sill flash.
+      for (const side of [-1, 1]) {
+        this.#addChassisMesh(
+          new THREE.BoxGeometry(0.06, 0.35, 1.1),
+          carbon,
+          [side * (track * 0.52), 0.55, 0.1],
+          quality,
+          false,
+        );
+      }
+    }
+
+    if (level >= 2) {
+      // Carbon roof / tank spine.
+      if (isBike) {
+        this.#addChassisMesh(new THREE.BoxGeometry(0.2, 0.06, 0.7), carbon, [0, 0.92, 0.05], quality);
+      } else {
+        this.#addChassisMesh(
+          new THREE.BoxGeometry(track * 0.55, 0.05, Math.abs(w.front - w.rear) * 0.5),
+          carbon,
+          [0, 1.05, -0.1],
+          quality,
+        );
+      }
+      // Exposed fastener row — reads as race hardware.
+      for (let i = -2; i <= 2; i++) {
+        this.#addChassisMesh(
+          new THREE.BoxGeometry(0.04, 0.04, 0.04),
+          bolt,
+          [i * 0.12, isBike ? 0.95 : 1.08, isBike ? 0.2 : -0.15],
+          quality,
+          false,
+        );
+      }
+    }
+
+    if (level >= 3) {
+      // Roll-cage / subframe tubes.
+      if (isBike) {
+        for (const side of [-1, 1]) {
+          this.#addChassisMesh(
+            new THREE.CylinderGeometry(0.025, 0.025, 0.55, 6),
+            carbon,
+            [side * 0.12, 0.7, -0.15, 0.4, 0, side * 0.15],
+            quality,
+          );
+        }
+      } else {
+        // Simple halo bar over the cabin.
+        const half = track * 0.35;
+        this.#addChassisMesh(
+          new THREE.CylinderGeometry(0.035, 0.035, half * 2, 6),
+          carbon,
+          [0, 1.15, -0.2, 0, 0, Math.PI / 2],
+          quality,
+        );
+        for (const side of [-1, 1]) {
+          this.#addChassisMesh(
+            new THREE.CylinderGeometry(0.03, 0.03, 0.55, 6),
+            carbon,
+            [side * half, 0.9, -0.2],
+            quality,
+          );
+        }
+      }
+    }
+  }
+
   async #loadModel(spec, quality) {
     try {
       const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
       const gltf = await new GLTFLoader().loadAsync(spec.model);
-      // Replace the procedural body, keep the wheels and lights driving as-is.
-      for (const mesh of [...this.chassis.children]) this.chassis.remove(mesh);
+      // Replace the procedural body, keep wheels, lights and upgrade kits.
+      const keep = new Set([...this.brakeLights, ...this.brakeGlows]);
+      for (const mesh of [...this.chassis.children]) {
+        if (!keep.has(mesh) && !mesh.userData?.upgradeKit) this.chassis.remove(mesh);
+      }
+      // Actually upgrade kit meshes aren't marked — safer: only remove original body
+      // by clearing non-light children that were added before kits... For glTF
+      // path (unused today) rebuild is rare; re-add kits after.
+      for (const mesh of [...this.chassis.children]) {
+        if (!keep.has(mesh)) this.chassis.remove(mesh);
+      }
       gltf.scene.traverse((o) => {
         if (o.isMesh) o.castShadow = quality.shadows;
       });
       this.chassis.add(gltf.scene);
       for (const light of this.brakeLights) this.chassis.add(light);
       for (const glow of this.brakeGlows) this.chassis.add(glow);
+      this.#buildAeroKit(spec, quality);
+      this.#buildChassisKit(spec, quality);
     } catch (err) {
       console.warn(`[insta-speed] falling back to the procedural body for ${spec.id}:`, err);
     }
@@ -238,13 +499,6 @@ export class VehicleView {
     this.root.position.set(worldX(sim.y), 0, sim.x);
     this.root.rotation.y = worldYaw(sim.yaw);
 
-    // Dive under braking and squat under the (brief) launch, capped so heavy
-    // vehicles do not look like they are folding in half.
-    //
-    // Filtered rather than driven straight off `ax`: ABS servos caliper
-    // pressure at 30 Hz, so the raw deceleration trace is a sawtooth and the
-    // body was buzzing against it. A real suspension has mass and dampers, and
-    // this is the cheapest honest stand-in for both.
     const dive = clamp(-sim.ax / 22, -0.05, 0.09);
     const roll = clamp(sim.ay / 40, -0.06, 0.06);
     const k = 1 - Math.exp(-dt * 9);
@@ -252,8 +506,7 @@ export class VehicleView {
     this.roll += (roll - this.roll) * k;
 
     this.chassis.rotation.x = this.dive;
-    this.chassis.position.y = -this.dive * 0.35;
-    // Body roll leans away from the lateral acceleration, in the mirrored frame.
+    this.chassis.position.y = this.chassisBaseY - this.dive * 0.35;
     this.chassis.rotation.z = this.roll;
 
     const r = this.spec.wheelRadius;
@@ -277,10 +530,6 @@ export class VehicleView {
 
   /**
    * World-space contact-patch positions, one per wheel.
-   *
-   * Read straight off the wheel hubs, which the scene graph has already placed
-   * correctly. Effects that need these must not recompute them from sim state —
-   * duplicating the track-to-world transform is how they end up mirrored.
    * @returns {THREE.Vector3[]}
    */
   wheelWorldPositions() {
@@ -291,7 +540,7 @@ export class VehicleView {
     this._wheelPoints.length = this.wheels.length;
     for (let i = 0; i < this.wheels.length; i++) {
       this.wheels[i].mesh.getWorldPosition(this._wheelPoints[i]);
-      this._wheelPoints[i].y = 0.12; // contact patch, not hub centre
+      this._wheelPoints[i].y = 0.12;
     }
     return this._wheelPoints;
   }
@@ -316,5 +565,6 @@ export class VehicleView {
     this.brakeLights = [];
     this.brakeGlows = [];
     this.disposables = [];
+    this.chassisBaseY = 0;
   }
 }
