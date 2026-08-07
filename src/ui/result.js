@@ -22,6 +22,7 @@ export class Result {
     this.stats = document.getElementById('result-stats');
     this.record = document.getElementById('result-record');
     this.unlock = document.getElementById('result-unlock');
+    this.credits = document.getElementById('result-credits');
     this.retry = document.getElementById('retry');
 
     this.retry.addEventListener('click', onRetry);
@@ -46,7 +47,7 @@ export class Result {
       Pace: result.clean
         ? `${int(result.paceBonus)} · ${Math.round(result.pace * 100)}% of par`
         : '—',
-      'Launch speed': `${int(result.launchSpeedKph)} km/h`,
+      'Launch speed': `${int(result.launchSpeedKph)} km/h · ×${result.multiplier.toFixed(2)}`,
       'Stopped at': metres(result.stoppedAt),
       'Target line': metres(result.target),
       'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)}, limit ${result.timeLimit} s)`,
@@ -58,6 +59,19 @@ export class Result {
     this.retry.textContent = result.unlockedKph
       ? `Launch at ${result.unlockedKph} km/h`
       : 'Run it again';
+
+    // The first clean stop on a pairing pays a bonus, so it is called out
+    // separately — otherwise the number just looks inconsistent run to run.
+    if (result.creditsEarned > 0) {
+      this.credits.textContent = result.clearBonus
+        ? `+${int(result.creditsEarned)} cr — ${int(result.runCredits)} for the run, ${int(
+            result.clearBonus,
+          )} first clear · ${int(result.credits)} banked`
+        : `+${int(result.creditsEarned)} cr · ${int(result.credits)} banked`;
+      this.credits.hidden = false;
+    } else {
+      this.credits.hidden = true;
+    }
 
     if (result.unlockedKph) {
       this.unlock.textContent = `${result.unlockedKph} km/h unlocked`;

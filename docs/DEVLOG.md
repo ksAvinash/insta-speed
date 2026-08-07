@@ -212,3 +212,56 @@ problems no unit test would have:
   braking share one friction budget. That is a real and desirable mechanic, but
   it means an open-loop "brake at the perfect moment" driver always overshoots —
   worth knowing before tuning `targetFactor`.
+
+## Round three: upgrades
+
+Adding parts to buy turned out to be mostly a scoring problem, and the two
+things that actually shaped the design were both measured rather than reasoned.
+
+### Upgrades were worth exactly nothing
+
+The first working version fitted better brakes and changed the score by less
+than a percent. `buildCourse` places the target line by simulating *this*
+vehicle — coast 3.5 s, brake flat out, that is where the line goes — so a
+shorter stop just moves the line closer, and par moves with it. Precision and
+pace are both measured against that same par, so they came out identical.
+
+Freezing the course on the stock spec was the obvious fix and the wrong one: it
+buys the player a longer and longer coast, and a longer coast is the boring
+half of a run — the thing `COAST_SECONDS` exists to prevent. So the course still
+adapts, and the payoff moved onto the rung instead: `speedTiers` extends the
+ladder, and the score gained a launch-speed multiplier (×1.0 at 100 km/h, ×2.6
+at 900) with a per-scene factor on top.
+
+### Better tyres pushed the superbike off the bridge
+
+The default tyre ladder's *smallest* step, `tire.D` up 5%, took the bike from a
+5.1 m drift on Storm Deck Bridge to over the 6.65 m edge. More longitudinal
+bite means harder braking, harder braking means more load transfer, and on a
+1.42 m wheelbase with a 0.62 m CG the rear wheel was already close to lifting.
+Neither more lateral grip (1.20) nor a full aero build recovered it.
+
+What did fix it was the chassis upgrade — lighter and lower cut the drift to
+3.1 m — which is the tell: the problem was load transfer, not grip. The bike now
+carries its own lateral-weighted tyre ladder in its spec file, and a fully built
+bike drifts 2.2 m where a stock one drifts 5.1 m.
+
+The general lesson is uncomfortable enough to be worth writing down: **an
+upgrade can make a pairing unwinnable**, so the test matrix grew a second axis
+of builds (stock, each part maxed alone, everything maxed).
+
+### The roster cannot take a uniform bump
+
+A flat +300 km/h for everyone does not survive contact with the sim:
+
+| | stock | fully built | why |
+|---|---|---|---|
+| Vector GT-R | 600 | **900** | downforce scales with v², so it brakes hardest when fastest — 0.3 m of drift at 900 on the bridge |
+| Hornet 1000R | 400 | **500** | one rung, held back to tier 3; everything that makes it quick makes it unstable |
+| Haulmaster 900 | 300 | **400** | on snow at 400 the judgement window has already stretched to 4.5 s; past that the run is a wait |
+
+Heat is what gates the GT rather than grip, which is a pleasant accident of the
+existing model: at 900 km/h on stock rotors it cooks to 2,183 °C and needs
+2,038 m, against 1,583 m with the brakes fitted. The upgrade tree only has to
+say out loud what the physics was already enforcing — which is why the tier is
+the *lowest* of tyres, brakes and aero, not their sum.

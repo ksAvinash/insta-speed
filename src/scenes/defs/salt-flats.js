@@ -16,6 +16,10 @@ export default {
   crosswind: 0,
   ambientTempC: 34,
 
+  // The tutorial venue pays the base rate; the harder scenes are where the
+  // multiplier actually lives.
+  scoreMultiplier: 1,
+
   roadWidth: 18.2,
   wallOffset: 45,
 

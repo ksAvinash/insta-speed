@@ -1,7 +1,7 @@
 # insta-speed
 
 A browser braking game. You are launched instantly at speed and have exactly one
-job: stop on the line. Start at 100 km/h and work up to 600.
+job: stop on the line. Start at 100 km/h and work up to 900.
 
 ```
 [LAUNCH] ============================>  |TARGET|  ##WALL##
@@ -52,6 +52,16 @@ You start every vehicle at 100 km/h and unlock the next rung — 100 km/h faster
 by bringing the previous one to a clean stop, up to the vehicle's top speed. The
 button on the result card launches straight into the rung you just won.
 
+Runs bank credits, and credits buy parts: tyres, brakes, aero and chassis, three
+levels each. Parts do two things. They change how the vehicle behaves — a fully
+built superbike drifts less than half as far across a windswept bridge — and,
+once tyres, brakes and aero are all at the same level, they extend how far the
+speed ladder goes. The Vector GT-R runs 600 → 700 → 800 → 900 km/h; the bike and
+the truck each gain a single rung, and only when they are completely built.
+
+You still have to earn every rung by stopping cleanly on the one below. Parts
+raise the ceiling; driving is what gets you there.
+
 The target line sits beyond the distance the car needs to stop flat out, so
 braking at `t=0` leaves you well short. The whole game is judging the coast.
 Every course gives you the same 3.5-second judgement window before the braking
@@ -66,7 +76,7 @@ short in record time is worth nothing.
 
 The run clock sits at the top of the screen with the limit under it. Each
 pairing gets its own limit, derived from par — 12 s for a hypercar at 100 km/h
-on tarmac, 48 s for a loaded truck at 320 km/h on snow. It is generous: a
+on tarmac, 48 s for a fully built truck at 400 km/h on snow. It is generous: a
 well-driven run uses at most 55% of it. What it exists to stop is shedding the
 speed early and then trickling the last stretch at walking pace to guarantee the
 line, which otherwise takes three times as long as committing properly.
@@ -83,6 +93,8 @@ always produce the same stop.
   when it is fastest and loses grip as it slows.
 - **Brake fade** is modelled from rotor temperature. A 600 km/h stop dumps
   roughly 20 MJ into the discs and they lose bite long before you are stopped.
+  This is what actually caps top speed: on stock rotors a 900 km/h stop cooks to
+  2,180 °C and needs 2,038 m, against 1,583 m once the brakes are upgraded.
 - **ABS** modulates caliper pressure toward peak slip. Vehicles without it lock,
   smoke, and take much longer.
 
@@ -124,9 +136,11 @@ crosswind, colours and instanced roadside props.
 `npm test` covers two things. `test/physics.test.js` checks the model against
 reality — most importantly that a 1,500 kg car with μ≈1.0 stops from 100 km/h in
 39–43 m, the real-world envelope for a modern performance car. `test/course.test.js`
-runs every vehicle against every scene across the speed ladder and asserts each
-pairing is actually winnable: a lane-keeping driver stays on the road, and the
-target line is reachable.
+runs every vehicle, in every build a player can reach, against every scene across
+the speed ladder, and asserts each pairing is actually winnable: a lane-keeping
+driver stays on the road, and the target line is reachable. Upgrades are not
+uniformly good — the default tyre ladder pushes the superbike clean off Storm
+Deck Bridge — so builds are a real axis of that matrix, not a formality.
 
 ## Deploying
 

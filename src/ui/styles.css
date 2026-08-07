@@ -668,6 +668,115 @@ body[data-state='countdown'] #brake-surface {
   display: none;
 }
 
+/* Credits read as a running total rather than an award, so they get the calmer
+   treatment and keep their digits aligned. */
+.record--credits {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line);
+  color: var(--text);
+  letter-spacing: 0.04em;
+  text-transform: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------- upgrades ------------------------------- */
+
+.credits {
+  float: right;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 8px;
+}
+
+/* `minmax(0, 1fr)` rather than `1fr`: an auto-placed grid track floors at
+   min-content, so a long part label ("Lip and splitter → Adjustable wing")
+   pushes the text track wider than the card and straight under the button. */
+.part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  /* The garage gradient is deliberately clear through the middle so the
+     showcase vehicle shows through, and this panel lands right on top of it.
+     Unlike the chips, these cards carry small muted text, so they bring their
+     own backdrop rather than relying on the one behind them. */
+  background: rgba(10, 13, 18, 0.78);
+  backdrop-filter: blur(2px);
+  padding: 10px 12px;
+}
+
+.part-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.part-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.part-pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pip {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.pip--on {
+  background: var(--accent);
+}
+
+.part-fitted {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.part-fitted b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Spans both rows so the button is centred against the name and the label. */
+.btn--buy {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  padding: 8px 12px;
+  font-size: 12px;
+  min-width: 76px;
+  font-variant-numeric: tabular-nums;
+  border-color: rgba(77, 255, 146, 0.4);
+  color: var(--accent);
+  background: rgba(77, 255, 146, 0.1);
+}
+
+.btn--buy:disabled {
+  cursor: not-allowed;
+  border-color: var(--line);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 @media (prefers-reduced-motion: reduce) {
   #countdown span,
   .readout--time.is-critical span {

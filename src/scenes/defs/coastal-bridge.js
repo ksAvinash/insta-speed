@@ -18,6 +18,9 @@ export default {
   crosswind: 5,
   ambientTempC: 9,
 
+  // The hardest pairing in the game to hold a lane on, and paid accordingly.
+  scoreMultiplier: 1.25,
+
   roadWidth: 13.3,
   wallOffset: 40,
 

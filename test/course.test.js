@@ -4,6 +4,7 @@ import { VehicleSim } from '../src/physics/VehicleSim.js';
 import { PHYSICS_DT } from '../src/physics/constants.js';
 import { buildCourse, timeLimitFor, COAST_SECONDS } from '../src/core/course.js';
 import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH, SPEED_STEP_KPH } from '../src/core/speeds.js';
+import { applyUpgrades, PART_IDS, MAX_LEVEL } from '../src/vehicles/upgrades.js';
 
 // The registries use `import.meta.glob`, which is a Vite transform and does not
 // exist under plain node, so the specs are imported directly here.
@@ -16,8 +17,42 @@ import tunnel from '../src/scenes/defs/tunnel.js';
 import coastalBridge from '../src/scenes/defs/coastal-bridge.js';
 import snowPass from '../src/scenes/defs/snow-pass.js';
 
-const VEHICLES = [hyperGt, superbike, semiTruck];
+const STOCK = [hyperGt, superbike, semiTruck];
 const SCENES = [saltFlats, tunnel, coastalBridge, snowPass];
+
+/**
+ * Builds a player can actually be driving.
+ *
+ * Upgrades are not cosmetic and they are not uniformly good: a part changes the
+ * spec the sim runs, so it can take a pairing that used to be winnable and make
+ * it unwinnable. That is not hypothetical — the default tyre ladder's smallest
+ * step pushes the superbike off Storm Deck Bridge, which is why it has its own
+ * lateral-weighted ladder in `specs/superbike.js`.
+ *
+ * Every part maxed *alone* is included as well as the full build, because a
+ * single part with nothing to balance it is the shape most likely to break: it
+ * is also exactly what a player saving for one expensive component ends up
+ * driving.
+ */
+const levels = (n) => Object.fromEntries(PART_IDS.map((id) => [id, n]));
+const BUILDS = [
+  { name: 'stock', levels: levels(0) },
+  ...PART_IDS.map((id) => ({
+    name: `${id} L${MAX_LEVEL}`,
+    levels: { ...levels(0), [id]: MAX_LEVEL },
+  })),
+  { name: 'fully built', levels: levels(MAX_LEVEL) },
+];
+
+/** Every stock vehicle in every build a player can reach. */
+const VEHICLES = STOCK.flatMap((spec) =>
+  BUILDS.map((build) => {
+    const tuned = applyUpgrades(spec, build.levels);
+    // The derived spec keeps the base id, so it needs its own display name to
+    // tell the failures apart.
+    return { ...tuned, name: `${tuned.name} (${build.name})` };
+  }),
+);
 
 /**
  * Drives a run with a fixed input, reporting how it ended.
@@ -291,7 +326,7 @@ test('the speed ladder starts at the base speed and ends at the vehicle top spee
 });
 
 test('ladder navigation clamps to what is unlocked', () => {
-  const spec = VEHICLES.find((v) => v.maxLaunchKph === 600);
+  const spec = hyperGt;
   assert.equal(nextSpeed(spec, 100), 200);
   assert.equal(nextSpeed(spec, 500), 600);
   assert.equal(nextSpeed(spec, 600), null, 'top of the ladder has no next rung');
