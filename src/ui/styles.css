@@ -1717,6 +1717,7 @@ body[data-state='countdown'] #brake-surface {
   color: var(--accent);
 }
 
+/* Enabled (sound on / gyro on). */
 .tool-btn[aria-pressed='true'],
 .tool-btn.is-on {
   border-color: rgba(77, 255, 146, 0.5);
@@ -1725,28 +1726,30 @@ body[data-state='countdown'] #brake-surface {
   box-shadow: 0 0 14px rgba(77, 255, 146, 0.18);
 }
 
-/* Muted sound reads as inactive. */
+/* Disabled (sound muted / gyro off) — muted chrome + red strike. */
 .tool-btn.is-off {
   color: var(--muted);
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(8, 10, 14, 0.7);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
-.tool-btn.is-off .tool-icon--sound {
+.tool-btn.is-off .tool-icon {
   position: relative;
 }
 
-.tool-btn.is-off .tool-icon--sound::after {
+.tool-btn.is-off .tool-icon::after {
   content: '';
   position: absolute;
-  left: 3px;
-  right: 3px;
+  left: 2px;
+  right: 2px;
   top: 50%;
   height: 2px;
   background: var(--danger);
   transform: rotate(-28deg);
   border-radius: 1px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }
 
 .tool-icon {

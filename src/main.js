@@ -105,11 +105,13 @@ async function ensureTilt({ gesture = false } = {}) {
 }
 
 function syncMuteButton() {
-  const muted = audio.muted;
-  muteToggle.setAttribute('aria-pressed', String(muted));
-  muteToggle.setAttribute('aria-label', muted ? 'Sound off' : 'Sound on');
-  muteToggle.title = muted ? 'Sound off' : 'Sound on';
-  muteToggle.classList.toggle('is-off', muted);
+  // Same pattern as gyro: enabled = is-on, disabled = is-off + red strike.
+  const on = !audio.muted;
+  muteToggle.setAttribute('aria-pressed', String(on));
+  muteToggle.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+  muteToggle.title = on ? 'Sound on' : 'Sound off';
+  muteToggle.classList.toggle('is-on', on);
+  muteToggle.classList.toggle('is-off', !on);
 }
 
 function syncTiltButton() {
@@ -118,6 +120,7 @@ function syncTiltButton() {
   tiltToggle.setAttribute('aria-label', on ? 'Disable tilt steering' : 'Enable tilt steering');
   tiltToggle.title = on ? 'Tilt on' : 'Tilt off';
   tiltToggle.classList.toggle('is-on', on);
+  tiltToggle.classList.toggle('is-off', !on);
 }
 
 tiltToggle.addEventListener('click', async () => {
