@@ -1,46 +1,69 @@
 /**
- * Infinite, blinding salt. Built for pure speed tests: huge margin, thin air,
- * and heat that cooks the rotors once you start standing on the pedal.
+ * Endless white salt under a searing sky — the classic speed-record stage.
+ * Huge margin, thin dry air, heat that cooks the rotors if you sit on the pedal.
  * @type {import('../registry.js').SceneDef}
  */
 export default {
   id: 'salt-flats',
-  name: 'Bone Dry Salt Flat',
-  blurb: 'Blinding white, endless track width. Low air resistance, but heat fade kills brakes early.',
+  name: 'White Horizon',
+  blurb:
+    'Blinding salt to the edge of the earth. Thin air, heat fade, and a track so wide the world feels infinite.',
 
   surface: 'salt',
-  gripMultiplier: 0.85,
-  airDensity: 1.15,
-  crosswind: 1.2,
-  ambientTempC: 42,
-  scoreMultiplier: 1.0,
+  gripMultiplier: 0.9,
+  airDensity: 1.12,
+  crosswind: 1.6,
+  ambientTempC: 44,
+  scoreMultiplier: 1.05,
 
-  roadWidth: 45.0,
-  wallOffset: 120.0,
+  // Wide enough that lateral drama is rare — the story is heat and distance.
+  roadWidth: 42,
+  wallOffset: 100,
 
-  sky: { top: 0x4a90e2, bottom: 0xe0f2fe },
-  fog: { color: 0xdaf0ff, density: 0.0004 },
-  sun: { color: 0xfff7e6, intensity: 1.8, position: [0.1, 0.9, -0.2] },
-  ground: { color: 0xeef5f8, accent: 0xd8e3e8 },
-  // Darker than the salt around it on purpose — leaving the road is a fail,
-  // so the edges have to stay unmistakable even under whiteout glare.
-  road: { color: 0xb7c4cc, secondary: 0xdf8800 },
+  // Bleached desert sky: hard blue zenith, white-hot horizon.
+  sky: { top: 0x3a8de0, bottom: 0xf4fbff },
+  fog: { color: 0xe8f4ff, density: 0.00028 },
+  sun: { color: 0xfff6e8, intensity: 2.35, position: [0.08, 0.92, -0.18] },
+  ground: { color: 0xf4f7f8, accent: 0xe2e8ec },
+  // Road sits slightly cooler/grey than the salt so edges stay readable.
+  road: { color: 0xb8c4cc, secondary: 0xe8a020 },
+
   props: [
     {
       type: 'distance_marker',
       spacing: 100,
-      lateral: 23.0,
-      height: 1.8,
-      color: 0xd97706,
+      lateral: 22,
+      height: 2.0,
+      color: 0xe85d04,
       bothSides: true,
     },
     {
       type: 'timing_tower',
-      spacing: 500,
-      lateral: 35.0,
-      height: 12.0,
-      color: 0x475569,
+      spacing: 600,
+      lateral: 38,
+      height: 14,
+      color: 0x64748b,
       bothSides: false,
+      scale: 1.1,
+    },
+    {
+      type: 'radar_dish',
+      spacing: 900,
+      lateral: 48,
+      height: 16,
+      color: 0x94a3b8,
+      bothSides: false,
+    },
+    {
+      // Sparse dark rocks break the white infinity.
+      type: 'rock',
+      spacing: 80,
+      lateral: 28,
+      height: 1.2,
+      color: 0x8a9098,
+      bothSides: true,
+      scatter: 18,
+      scale: 1.4,
     },
   ],
 };

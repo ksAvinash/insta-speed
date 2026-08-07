@@ -138,8 +138,30 @@ export function makeRoadTexture(def, roadWidth, runway) {
       }
       ctx.stroke();
     }
+  } else if (surface === 'wet') {
+    // Rain-soaked blacktop: long mirror streaks + soft puddle pools.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.42;
+    for (let i = 0; i < 80; i++) {
+      const x = Math.random() * 256;
+      ctx.fillRect(x, 0, 1 + Math.random() * 2.5, 512);
+    }
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = '#9ab0c4';
+    for (let i = 0; i < 14; i++) {
+      const x = 20 + Math.random() * 216;
+      const y = Math.random() * 512;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 10 + Math.random() * 22, 4 + Math.random() * 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 30; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 1, 18 + Math.random() * 50);
+    }
   } else {
-    // Default tarmac / wet: longitudinal streaking for speed grain.
+    // Default tarmac: longitudinal streaking for speed grain.
     ctx.fillStyle = alt;
     ctx.globalAlpha = 0.35;
     for (let i = 0; i < 60; i++) {
@@ -188,11 +210,38 @@ export function makeGroundTexture(def) {
   ctx.fillRect(0, 0, 128, 128);
 
   if (surface === 'salt') {
-    // Blinding salt crust with soft mottling.
+    // Blinding salt crust with soft mottling + faint polygonal cracks.
     ctx.fillStyle = accent;
     ctx.globalAlpha = 0.45;
     for (let i = 0; i < 280; i++) {
       ctx.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 3, 1 + Math.random() * 3);
+    }
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = 0.2;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 16; i++) {
+      ctx.beginPath();
+      let x = Math.random() * 128;
+      let y = Math.random() * 128;
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 3; s++) {
+        x += (Math.random() - 0.5) * 28;
+        y += (Math.random() - 0.5) * 28;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  } else if (surface === 'wet') {
+    // Dark wet verge — dull asphalt shoulders, faint rain sheen.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.4;
+    for (let i = 0; i < 180; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#8aa0b4';
+    for (let i = 0; i < 24; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 8 + Math.random() * 20, 1);
     }
   } else if (surface === 'ice_tarmac' || surface === 'snow' || surface === 'ice') {
     ctx.fillStyle = accent;

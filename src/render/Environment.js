@@ -92,10 +92,15 @@ export class Environment {
     ground.receiveShadow = quality.shadows;
     this.#add(ground);
 
-    const hemi = new THREE.HemisphereLight(def.sky.top, def.ground.color, 1.15);
+    // Night / storm stages author a dim sun — pull hemi and ambient down with
+    // it so the scene actually *reads* as dark rather than flat grey.
+    const sunI = def.sun.intensity ?? 1;
+    const nightish = sunI < 0.85;
+    const hemiGain = nightish ? 0.55 + sunI * 0.4 : 1.15;
+    const hemi = new THREE.HemisphereLight(def.sky.top, def.ground.color, hemiGain);
     this.#add(hemi);
 
-    const sun = new THREE.DirectionalLight(def.sun.color, def.sun.intensity);
+    const sun = new THREE.DirectionalLight(def.sun.color, sunI);
     sun.position.set(...def.sun.position).multiplyScalar(400);
     if (quality.shadows) {
       sun.castShadow = true;
@@ -115,7 +120,8 @@ export class Environment {
     this.sun = sun;
     this.#add(sun);
 
-    this.#add(new THREE.AmbientLight(def.fog.color, def.tunnel ? 0.75 : 0.38));
+    const ambGain = def.tunnel ? 0.75 : nightish ? 0.22 + sunI * 0.25 : 0.38;
+    this.#add(new THREE.AmbientLight(def.fog.color, ambGain));
   }
 
   /** Keeps the shadow frustum centred on the car. */

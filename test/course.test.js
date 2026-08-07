@@ -13,13 +13,12 @@ import superbike from '../src/vehicles/specs/superbike.js';
 import semiTruck from '../src/vehicles/specs/semi-truck.js';
 
 import saltFlats from '../src/scenes/defs/salt-flats.js';
-import cyberTunnel from '../src/scenes/defs/cyber-tunnel.js';
-import glacialRunway from '../src/scenes/defs/glacial-runway.js';
-import mojaveAirstrip from '../src/scenes/defs/mojave-airstrip.js';
-import maglevSpire from '../src/scenes/defs/maglev-spire.js';
+import midnightCoast from '../src/scenes/defs/midnight-coast.js';
+import monsoonRun from '../src/scenes/defs/monsoon-run.js';
+import pacificDay from '../src/scenes/defs/pacific-day.js';
 
 const STOCK = [hyperGt, superbike, semiTruck];
-const SCENES = [saltFlats, cyberTunnel, glacialRunway, mojaveAirstrip, maglevSpire];
+const SCENES = [pacificDay, midnightCoast, monsoonRun, saltFlats];
 
 /**
  * Builds a player can actually be driving.
@@ -243,8 +242,8 @@ test('the clock catches a run nursed down to a crawl', () => {
   for (const [spec, scene, kph] of [
     [hyperGt, saltFlats, 100],
     [hyperGt, saltFlats, 600],
-    [superbike, cyberTunnel, 200],
-    [superbike, cyberTunnel, 400],
+    [superbike, pacificDay, 200],
+    [superbike, pacificDay, 400],
     [semiTruck, saltFlats, 200],
   ]) {
     const r = run(spec, scene, creep, kph);
