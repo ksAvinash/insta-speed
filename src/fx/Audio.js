@@ -374,12 +374,31 @@ export class Audio {
     osc.stop(now + 0.5);
   }
 
+  /**
+   * Hard-stop all continuous voices (wind, engine, squeal). One-shots already
+   * in flight (impact, timeout) finish on their own.
+   */
   silence() {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.ctx) return;
     const now = this.ctx.currentTime;
-    this.windGain.gain.setTargetAtTime(0, now, 0.15);
-    this.squealGain.gain.setTargetAtTime(0, now, 0.1);
-    this.engineGain.gain.setTargetAtTime(0, now, 0.12);
-    this.engineNoiseGain.gain.setTargetAtTime(0, now, 0.1);
+    for (const g of [
+      this.windGain,
+      this.squealGain,
+      this.engineGain,
+      this.engineNoiseGain,
+    ]) {
+      if (!g) continue;
+      g.gain.cancelScheduledValues(now);
+      g.gain.setValueAtTime(0, now);
+    }
+    // Kill diesel LFO so it cannot keep modulating the VCA.
+    if (this.enginePulseDepth) {
+      this.enginePulseDepth.gain.cancelScheduledValues(now);
+      this.enginePulseDepth.gain.setValueAtTime(0, now);
+    }
+    if (this.engineVca) {
+      this.engineVca.gain.cancelScheduledValues(now);
+      this.engineVca.gain.setValueAtTime(1, now);
+    }
   }
 }

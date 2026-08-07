@@ -102,12 +102,19 @@ export class Chase {
     const locked = sim.locked;
     const lockedAxles = (locked.front ? 1 : 0) + (locked.rear ? 1 : 0);
 
-    const rumble = live ? clamp(-sim.ax / 18, 0, 1) * 0.3 + sim.slipIntensity * 0.35 : 0;
-    const lockup = live ? lockedAxles * 0.5 * clamp(sim.v / 10, 0, 1) : 0;
+    if (!live) {
+      // Result card: kill camera shake immediately. Exponential decay left a
+      // stuttering frame behind the fail popup for a noticeable beat.
+      this.shake = 0;
+      this.judder = 0;
+    } else {
+      const rumble = clamp(-sim.ax / 18, 0, 1) * 0.3 + sim.slipIntensity * 0.35;
+      const lockup = lockedAxles * 0.5 * clamp(sim.v / 10, 0, 1);
 
-    this.shake += (rumble - this.shake) * Math.min(1, dt * 8);
-    // Onset is snappy, release is slower — a lock should announce itself.
-    this.judder += (lockup - this.judder) * Math.min(1, dt * (lockup > this.judder ? 24 : 7));
+      this.shake += (rumble - this.shake) * Math.min(1, dt * 8);
+      // Onset is snappy, release is slower — a lock should announce itself.
+      this.judder += (lockup - this.judder) * Math.min(1, dt * (lockup > this.judder ? 24 : 7));
+    }
 
     const rumbleAmp = this.shake * 0.09;
     const juddAmp = this.judder * 0.16;

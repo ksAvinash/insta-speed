@@ -211,7 +211,10 @@ bus.on('statechange', (state) => {
     startLights.show(game.vehicle);
   }
   if (state === 'result') {
+    // Stop wind/engine/squeal before the impact one-shot so they do not keep
+    // feeding off the frozen sim behind the result card.
     audio.silence();
+    input.reset();
     hud.hide();
     startLights.hide();
     pads.hidden = true;
@@ -234,6 +237,7 @@ bus.on('launched', () => {
 });
 
 bus.on('result', (r) => {
+  // Continuous layers already silenced on statechange; only one-shots here.
   if (r.outcome === 'timeout') audio.timeout();
   else if (r.outcome === 'crash') audio.impact(1);
   else if (r.outcome === 'offroad') audio.impact(0.5);
@@ -272,8 +276,13 @@ const loop = new Loop({
           info: renderer.info,
         };
       }
-      audio.update(game.sim, frameDt);
-      if (game.state === 'running') hud.update(game.sim, game.distanceToTarget);
+      // Continuous wind/engine/squeal only while the run is live. The sim keeps
+      // its final velocity after a crash, so updating audio on the result
+      // screen would keep re-opening those gains every frame.
+      if (game.state === 'running') {
+        audio.update(game.sim, frameDt);
+        hud.update(game.sim, game.distanceToTarget);
+      }
     }
 
     if (import.meta.env.DEV) perfOverlay?.tick(frameDt);
