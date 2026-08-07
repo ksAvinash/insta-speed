@@ -37,9 +37,18 @@
         </div>
       </div>
 
-      <!-- Remaining seconds, top centre — only once ≤9 s left; grows to zero. -->
+      <!-- Remaining seconds, top centre — only once ≤9 s left.
+           SVG text with fill=none so the digit is a true hollow outline. -->
       <div class="readout readout--time" hidden aria-live="polite">
-        <span id="hud-time">0</span>
+        <svg class="clock-svg" viewBox="0 0 120 110" aria-hidden="true">
+          <text
+            id="hud-time"
+            class="clock-digit"
+            x="60"
+            y="88"
+            text-anchor="middle"
+          >0</text>
+        </svg>
       </div>
 
       <div class="hud-bars">

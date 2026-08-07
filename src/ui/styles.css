@@ -110,51 +110,57 @@ body[data-state='countdown'] #brake-surface {
 }
 
 /* Remaining-seconds clock: top centre, only once ≤9 s left.
-   Big constant outline type; from 5 s pulses with the border (--pulse). */
+   SVG outline digit (fill=none) — CSS text-stroke still paints a dark body. */
 .readout--time {
   position: absolute;
   top: calc(var(--safe-t) + var(--pad));
   left: 50%;
   transform: translateX(-50%);
-  flex-direction: column;
+  display: flex;
   align-items: center;
-  gap: 0;
+  justify-content: center;
   z-index: 1;
   --pulse: 0.9s;
   --urgency: 0;
+  --clock-stroke: #ffffff;
+  text-shadow: none;
+  pointer-events: none;
 }
 
 .readout--time[hidden] {
   display: none;
 }
 
-.readout--time span {
-  /* Condensed industrial display face; stroke-only so it sits over the 3D scene. */
+.clock-svg {
+  width: clamp(72px, 18vw, 110px);
+  height: clamp(66px, 16.5vw, 100px);
+  overflow: visible;
+  display: block;
+}
+
+.clock-digit {
   font-family:
     'Arial Black', 'Helvetica Neue', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
-  font-size: clamp(64px, 16vw, 96px);
+  font-size: 96px;
   font-weight: 900;
   font-style: italic;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: transparent;
-  -webkit-text-stroke: 2.5px rgba(255, 255, 255, 0.92);
-  text-stroke: 2.5px rgba(255, 255, 255, 0.92);
-  paint-order: stroke fill;
-  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.55));
-  transition: -webkit-text-stroke-color 140ms linear;
+  fill: none;
+  stroke: var(--clock-stroke);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  paint-order: stroke;
+  transition: stroke 140ms linear;
 }
 
 /* 5 s → 0: same pulse animation + period as #timeout-warn. */
-.readout--time.is-tight span {
-  -webkit-text-stroke-color: rgba(255, 196, 72, 0.95);
-  text-stroke-color: rgba(255, 196, 72, 0.95);
+.readout--time.is-tight {
+  --clock-stroke: #ffc448;
   animation: timeout-border-pulse var(--pulse) ease-in-out infinite;
 }
 
-.readout--time.is-critical span {
-  -webkit-text-stroke-color: rgba(255, 80, 70, 0.98);
-  text-stroke-color: rgba(255, 80, 70, 0.98);
+.readout--time.is-critical {
+  --clock-stroke: #ff5046;
 }
 
 .readout--distance {
@@ -1130,7 +1136,7 @@ body[data-state='countdown'] #brake-surface {
   .start-gantry--motogp,
   .start-gantry--traffic,
   #start-lights.is-go .start-caption,
-  .readout--time.is-tight span,
+  .readout--time.is-tight,
   .result-card,
   .grade,
   .record,
@@ -1138,7 +1144,7 @@ body[data-state='countdown'] #brake-surface {
     animation: none;
   }
   #timeout-warn,
-  .readout--time.is-tight span {
+  .readout--time.is-tight {
     opacity: 0.85;
   }
   .start-lamp {

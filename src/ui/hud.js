@@ -34,6 +34,7 @@ export class Hud {
   #text(el, key, value) {
     if (this.last[key] === value) return;
     this.last[key] = value;
+    // SVG <text> and HTML text nodes both accept textContent.
     el.textContent = value;
   }
 
