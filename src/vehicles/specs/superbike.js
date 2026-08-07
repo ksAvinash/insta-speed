@@ -54,7 +54,7 @@ export default {
     ],
   },
 
-  model: null,
+  model: '/models/superbike.glb',
   body: {
     parts: [
       // Fuel tank / main body

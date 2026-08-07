@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:mobile": "vite --host",
-    "build": "vite build",
+    "build": "npm run models && vite build",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "models": "node scripts/generate-vehicle-glbs.mjs"
   },
   "dependencies": {
     "three": "^0.185.1"

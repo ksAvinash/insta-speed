@@ -502,26 +502,40 @@ export class VehicleView {
   }
 
   async #loadModel(spec, quality) {
+    const token = (this._modelToken = (this._modelToken ?? 0) + 1);
     try {
       const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
       const gltf = await new GLTFLoader().loadAsync(spec.model);
-      // Replace the procedural body, keep wheels, lights and upgrade kits.
+      // A newer build() started while we were loading — drop this result.
+      if (token !== this._modelToken || this.spec?.id !== spec.id) return;
+
+      // Only swap once the file is in: keeps the procedural body as a live
+      // fallback if the request fails, and avoids an empty chassis on error.
       const keep = new Set([...this.brakeLights, ...this.brakeGlows]);
-      for (const mesh of [...this.chassis.children]) {
-        if (!keep.has(mesh) && !mesh.userData?.upgradeKit) this.chassis.remove(mesh);
+      for (const child of [...this.chassis.children]) {
+        if (keep.has(child)) continue;
+        this.chassis.remove(child);
+        child.geometry?.dispose?.();
+        if (child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const m of mats) m.dispose?.();
+        }
       }
-      // Actually upgrade kit meshes aren't marked — safer: only remove original body
-      // by clearing non-light children that were added before kits... For glTF
-      // path (unused today) rebuild is rare; re-add kits after.
-      for (const mesh of [...this.chassis.children]) {
-        if (!keep.has(mesh)) this.chassis.remove(mesh);
-      }
+
       gltf.scene.traverse((o) => {
-        if (o.isMesh) o.castShadow = quality.shadows;
+        if (!o.isMesh) return;
+        o.castShadow = quality.shadows;
+        o.receiveShadow = quality.shadows;
+        // Ensure standard materials stay lit under our simple hemi/sun setup.
+        if (o.material && 'envMapIntensity' in o.material) {
+          o.material.envMapIntensity = 0.6;
+        }
       });
+      gltf.scene.name = `model:${spec.id}`;
       this.chassis.add(gltf.scene);
       for (const light of this.brakeLights) this.chassis.add(light);
       for (const glow of this.brakeGlows) this.chassis.add(glow);
+      // Upgrade kits still layer on top of the loaded shell.
       this.#buildAeroKit(spec, quality);
       this.#buildChassisKit(spec, quality);
     } catch (err) {

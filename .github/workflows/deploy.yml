@@ -25,7 +25,16 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run build
+      # `npm run build` runs `models` first (see package.json), then vite build.
+      # GLBs land in public/models/ and are copied into dist/models/ by Vite.
+      - name: Generate models and build
+        run: npm run build
+      - name: Verify vehicle models in dist
+        run: |
+          test -f dist/models/hyper-gt.glb
+          test -f dist/models/superbike.glb
+          test -f dist/models/semi-truck.glb
+          ls -la dist/models/
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

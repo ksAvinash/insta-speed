@@ -33,7 +33,7 @@ export default {
   // has already stretched to 4.5 s because the stop alone eats 1,435 m, and
   // anything beyond that is a wait rather than a run.
   speedTiers: [300, 300, 400],
-  model: null,
+  model: '/models/semi-truck.glb',
   body: {
     parts: [
       // Trailer box

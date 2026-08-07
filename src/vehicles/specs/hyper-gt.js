@@ -34,7 +34,7 @@ export default {
   // gates it is heat: on stock rotors a 900 km/h stop cooks to 2,180 °C and
   // needs 2,038 m, against 1,583 m once the brakes are fitted.
   speedTiers: [700, 800, 900],
-  model: null,
+  model: '/models/hyper-gt.glb',
   body: {
     parts: [
       // Main tub
