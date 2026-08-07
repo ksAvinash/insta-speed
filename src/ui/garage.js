@@ -369,12 +369,15 @@ export class Garage {
     if (!this.speedList) return;
     const ladder = game.ladder;
     const unlocked = game.unlockedSpeed;
+    /** How many rungs are visible in the rail viewport at once. */
+    const VISIBLE = 4;
 
     if (this.speedReadout) {
       this.speedReadout.textContent = `${int(game.launchSpeedKph)} km/h`;
     }
 
     this.speedList.innerHTML = '';
+    this.speedList.dataset.visible = String(VISIBLE);
     for (const kph of ladder) {
       const locked = kph > unlocked;
       const selected = kph === game.launchSpeedKph;
@@ -396,6 +399,32 @@ export class Garage {
       });
       this.speedList.append(node);
     }
+
+    // Viewport holds 4 rungs; default to the last 4, or keep the selected rung in view.
+    requestAnimationFrame(() => this.#scrollSpeedRail(VISIBLE));
+  }
+
+  /**
+   * Pin the rail so four rungs show. Prefer the tail of the ladder (last 4);
+   * if the selected rung sits earlier, scroll it into the window instead.
+   * @param {number} visible
+   */
+  #scrollSpeedRail(visible = 4) {
+    const rail = this.speedList;
+    if (!rail) return;
+    const nodes = [...rail.querySelectorAll('.speed-node')];
+    if (nodes.length === 0) return;
+
+    const selIdx = nodes.findIndex((n) => n.getAttribute('aria-pressed') === 'true');
+    const lastStart = Math.max(0, nodes.length - visible);
+    // Selected among the last 4 → show the end; otherwise show selected at top.
+    const targetIdx = selIdx >= 0 && selIdx < lastStart ? selIdx : lastStart;
+    const target = nodes[targetIdx];
+    if (!target) return;
+
+    // Offset relative to the first node — avoids scrollIntoView moving the page.
+    const base = nodes[0].offsetTop;
+    rail.scrollTop = Math.max(0, target.offsetTop - base);
   }
 
   #renderParts() {

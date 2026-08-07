@@ -1149,8 +1149,9 @@ body[data-state='countdown'] #brake-surface {
 
 .garage-speed {
   flex: 0 0 auto;
-  width: clamp(72px, 18vw, 104px);
-  max-height: min(52vh, 420px);
+  /* ~15% smaller than the prior dock. */
+  width: clamp(61px, 15.3vw, 88px);
+  max-height: min(44vh, 357px);
   align-self: center;
   pointer-events: auto;
   z-index: 2;
@@ -1353,15 +1354,15 @@ body[data-state='countdown'] #brake-surface {
 
 /* Speed rail (vertical dock on the right) */
 .picker--speed {
-  padding: 8px 6px;
+  padding: 7px 5px;
   border-color: rgba(255, 255, 255, 0.1);
   background:
     linear-gradient(180deg, rgba(16, 20, 28, 0.92), rgba(8, 10, 14, 0.88));
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
-  max-height: min(52vh, 420px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  max-height: min(44vh, 357px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .picker--parts {
@@ -1391,33 +1392,64 @@ body[data-state='countdown'] #brake-surface {
 }
 
 .picker-head--speed h2 {
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 0.16em;
 }
 
 .speed-readout {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   color: var(--accent);
-  text-shadow: 0 0 16px rgba(77, 255, 146, 0.35);
+  text-shadow: 0 0 14px rgba(77, 255, 146, 0.35);
   line-height: 1.1;
 }
 
-/* Vertical stack of speed rungs */
+/*
+  Vertical stack of speed rungs. Exactly 4 nodes fit in the viewport;
+  the rest are reached by scrolling (thin scrollbar as the “slider”).
+*/
 .speed-rail {
+  --speed-node-h: 32px;
+  --speed-gap: 3px;
+  --speed-visible: 4;
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
-  gap: 4px;
+  gap: var(--speed-gap);
   align-items: stretch;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  max-height: min(42vh, 340px);
-  padding: 1px;
+  scroll-snap-type: y proximity;
+  scroll-padding: 0;
+  /* 4 nodes + 3 gaps between them. */
+  height: calc(
+    var(--speed-node-h) * var(--speed-visible) + var(--speed-gap) * (var(--speed-visible) - 1)
+  );
+  max-height: calc(
+    var(--speed-node-h) * var(--speed-visible) + var(--speed-gap) * (var(--speed-visible) - 1)
+  );
+  padding: 0 2px 0 0;
+  /* Thin scroll affordance */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(77, 255, 146, 0.45) rgba(255, 255, 255, 0.06);
+}
+
+.speed-rail::-webkit-scrollbar {
+  width: 4px;
+}
+
+.speed-rail::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+
+.speed-rail::-webkit-scrollbar-thumb {
+  background: rgba(77, 255, 146, 0.45);
+  border-radius: 4px;
 }
 
 .speed-node {
@@ -1425,9 +1457,11 @@ body[data-state='countdown'] #brake-surface {
   position: relative;
   flex: 0 0 auto;
   width: 100%;
+  height: var(--speed-node-h);
+  min-height: var(--speed-node-h);
   min-width: 0;
-  padding: 7px 4px 6px;
-  border-radius: 8px;
+  padding: 4px 2px;
+  border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.3);
   color: var(--text);
@@ -1436,23 +1470,28 @@ body[data-state='countdown'] #brake-surface {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
   transition: border-color 120ms, background 120ms, box-shadow 120ms;
-  touch-action: manipulation;
+  touch-action: pan-y;
+  scroll-snap-align: start;
+  box-sizing: border-box;
 }
 
 .speed-node-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
 }
 
 .speed-node-val {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .speed-node:hover:not(:disabled) {
@@ -1477,15 +1516,15 @@ body[data-state='countdown'] #brake-surface {
 
 @media (max-width: 380px) {
   .garage-speed {
-    width: clamp(64px, 20vw, 88px);
+    width: clamp(54px, 17vw, 75px);
   }
 
-  .speed-node {
-    padding: 6px 3px 5px;
+  .speed-rail {
+    --speed-node-h: 30px;
   }
 
   .speed-node-val {
-    font-size: 10px;
+    font-size: 8px;
   }
 }
 
