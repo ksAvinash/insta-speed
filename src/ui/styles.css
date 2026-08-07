@@ -265,28 +265,185 @@ body[data-state='countdown'] #brake-surface {
   white-space: nowrap;
 }
 
-/* ============================ Countdown ============================ */
+/* ============================ Start lights ============================ */
 
-#countdown {
+#start-lights {
   position: fixed;
   inset: 0;
   z-index: 4;
   display: grid;
   place-items: center;
   pointer-events: none;
+  background: radial-gradient(
+    ellipse 55% 40% at 50% 42%,
+    rgba(0, 0, 0, 0.55),
+    transparent 70%
+  );
 }
 
-#countdown span {
-  font-size: clamp(96px, 30vw, 220px);
-  font-weight: 800;
-  letter-spacing: -0.05em;
-  text-shadow: 0 8px 60px rgba(0, 0, 0, 0.7);
-  animation: pop 420ms cubic-bezier(0.2, 1.4, 0.4, 1);
+#start-lights[hidden] {
+  display: none;
 }
 
-@keyframes pop {
+.start-gantry {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  animation: start-in 360ms cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.start-beam {
+  width: min(72vw, 340px);
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.28),
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.start-housing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #1a1d24 0%, #0c0e13 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.start-housing--f1 {
+  gap: 12px;
+  padding: 16px 22px;
+  border-radius: 10px;
+}
+
+.start-housing--motogp {
+  gap: 14px;
+  padding: 18px 26px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #141820 0%, #080a0e 100%);
+  border-color: rgba(255, 80, 70, 0.25);
+}
+
+.start-housing--traffic {
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 14px;
+  border-radius: 18px;
+  width: 72px;
+}
+
+.start-lamp {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1a1212;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.65);
+  transition:
+    background 90ms linear,
+    box-shadow 90ms linear,
+    border-color 90ms linear;
+}
+
+.start-housing--traffic .start-lamp {
+  width: 40px;
+  height: 40px;
+}
+
+.start-housing--motogp .start-lamp {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+}
+
+.start-lamp--red {
+  background: radial-gradient(circle at 35% 30%, #3a1515, #140808 70%);
+}
+
+.start-lamp--amber {
+  background: radial-gradient(circle at 35% 30%, #3a2e10, #141008 70%);
+}
+
+.start-lamp--green {
+  background: radial-gradient(circle at 35% 30%, #0f2a18, #08140c 70%);
+}
+
+.start-lamp--red.is-on {
+  background: radial-gradient(circle at 35% 30%, #ff7a6e, #ff2a1a 55%, #a00800);
+  border-color: rgba(255, 120, 100, 0.55);
+  box-shadow:
+    0 0 18px rgba(255, 40, 30, 0.85),
+    0 0 42px rgba(255, 30, 20, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.start-lamp--amber.is-on {
+  background: radial-gradient(circle at 35% 30%, #ffe08a, #f5b400 55%, #a06a00);
+  border-color: rgba(255, 200, 80, 0.55);
+  box-shadow:
+    0 0 18px rgba(245, 180, 20, 0.85),
+    0 0 42px rgba(245, 160, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.start-lamp--green.is-on {
+  background: radial-gradient(circle at 35% 30%, #9dffc0, #1ee06a 55%, #0a8040);
+  border-color: rgba(100, 255, 160, 0.55);
+  box-shadow:
+    0 0 18px rgba(40, 255, 120, 0.85),
+    0 0 42px rgba(30, 220, 100, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.start-caption {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8);
+  min-height: 1.2em;
+}
+
+#start-lights.is-go .start-caption {
+  color: var(--accent);
+  letter-spacing: 0.4em;
+  font-size: 18px;
+  animation: start-go 380ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+#start-lights.is-out .start-housing {
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+@keyframes start-in {
   from {
-    transform: scale(1.5);
+    transform: translateY(-18px) scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes start-go {
+  from {
+    transform: scale(1.35);
     opacity: 0;
   }
   to {
@@ -370,8 +527,7 @@ body[data-state='countdown'] #brake-surface {
 
 #garage[hidden],
 #result[hidden],
-#hud[hidden],
-#countdown[hidden] {
+#hud[hidden] {
   display: none;
 }
 
@@ -778,9 +934,13 @@ body[data-state='countdown'] #brake-surface {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #countdown span,
+  .start-gantry,
+  #start-lights.is-go .start-caption,
   .readout--time.is-critical span {
     animation: none;
+  }
+  .start-lamp {
+    transition: none;
   }
   .chip,
   .btn {

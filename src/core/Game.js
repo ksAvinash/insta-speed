@@ -27,7 +27,8 @@ export { buildCourse, idealStoppingDistance } from './course.js';
 
 /** @typedef {'garage'|'countdown'|'running'|'result'} GameState */
 
-const COUNTDOWN_SECONDS = 3;
+/** Seconds the vehicle is held at rest under the start lights. */
+export const COUNTDOWN_SECONDS = 3;
 
 export class Game {
   constructor() {

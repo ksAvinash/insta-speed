@@ -11,6 +11,7 @@ import { Audio } from './fx/Audio.js';
 import { Garage } from './ui/garage.js';
 import { Hud } from './ui/hud.js';
 import { Result } from './ui/result.js';
+import { StartLights } from './ui/startLights.js';
 import { VehicleSim } from './physics/VehicleSim.js';
 
 const canvas = document.getElementById('scene');
@@ -20,6 +21,7 @@ const game = new Game();
 const input = new InputManager();
 const audio = new Audio();
 const hud = new Hud();
+const startLights = new StartLights();
 
 const settings = loadSettings();
 game.select(settings.vehicleId, settings.sceneId);
@@ -194,6 +196,7 @@ bus.on('statechange', (state) => {
   if (state === 'garage') {
     garage.show();
     hud.hide();
+    startLights.hide();
     pads.hidden = true;
     audio.silence();
     showcaseSim = new VehicleSim(game.vehicle, game.scene, {
@@ -202,30 +205,28 @@ bus.on('statechange', (state) => {
   }
   if (state === 'countdown') {
     pads.hidden = !input.needsSteerPads;
+    // Vehicle picks the gantry: F1 for cars, MotoGP for bikes, traffic for trucks.
+    startLights.show(game.vehicle);
   }
   if (state === 'result') {
     audio.silence();
     hud.hide();
+    startLights.hide();
     pads.hidden = true;
     result.show(game.result);
   }
 });
 
-const countdownEl = document.getElementById('countdown');
-const countdownValue = document.getElementById('countdown-value');
-
 bus.on('countdown', (n) => {
-  countdownEl.hidden = false;
-  countdownValue.textContent = n > 0 ? String(n) : 'GO';
-  // Re-trigger the pop animation.
-  countdownValue.style.animation = 'none';
-  void countdownValue.offsetWidth;
-  countdownValue.style.animation = '';
+  // Beeps still track the second ticks; the lamps are driven continuously
+  // from remaining time in the render loop.
   audio.beep(n > 0 ? 620 : 980, n > 0 ? 0.1 : 0.3);
 });
 
 bus.on('launched', () => {
-  countdownEl.hidden = true;
+  startLights.go();
+  // Brief hold on the extinguish / green so the start reads, then clear.
+  window.setTimeout(() => startLights.hide(), 420);
   hud.setHint('Hold to brake');
 });
 
@@ -251,6 +252,7 @@ const loop = new Loop({
       world.showcase(game.vehicle, showcaseTime);
       world.vehicle.update(showcaseSim, frameDt);
     } else if (game.sim) {
+      if (game.state === 'countdown') startLights.update(game.countdown);
       // The sim keeps its final state after a run ends, so everything driven by
       // it — camera shake, smoke, streaks — has to be told the run is over or
       // it carries on shaking the scene behind the result card.
