@@ -1,37 +1,46 @@
 /**
- * The tutorial venue: flat, bright, endless, and forgiving. Thin desert air
- * means slightly less aerodynamic drag helping you slow down.
+ * Infinite, blinding salt. Built for pure speed tests: huge margin, thin air,
+ * and heat that cooks the rotors once you start standing on the pedal.
  * @type {import('../registry.js').SceneDef}
  */
 export default {
   id: 'salt-flats',
-  name: 'Bonneville Salt Flats',
-  blurb: 'Flat, bright and endless. Thin air, so drag helps you less than usual.',
+  name: 'Bone Dry Salt Flat',
+  blurb: 'Blinding white, endless track width. Low air resistance, but heat fade kills brakes early.',
 
   surface: 'salt',
-  gripMultiplier: 1,
-  airDensity: 1.1,
-  // Dead calm on purpose: this is where players learn to judge a braking point
-  // without also fighting to hold a lane.
-  crosswind: 0,
-  ambientTempC: 34,
+  gripMultiplier: 0.85,
+  airDensity: 1.15,
+  crosswind: 1.2,
+  ambientTempC: 42,
+  scoreMultiplier: 1.0,
 
-  // The tutorial venue pays the base rate; the harder scenes are where the
-  // multiplier actually lives.
-  scoreMultiplier: 1,
+  roadWidth: 45.0,
+  wallOffset: 120.0,
 
-  roadWidth: 18.2,
-  wallOffset: 45,
-
-  sky: { top: 0x2f6fd0, bottom: 0xbfe0f5 },
-  fog: { color: 0xdff0fb, density: 0.00035 },
-  sun: { color: 0xfff6e0, intensity: 2.6, position: [-0.4, 0.8, 0.35] },
-  ground: { color: 0xf0ece0, accent: 0xdcd6c4 },
-  // Deliberately darker than the salt around it. Leaving the road is a fail
-  // condition, so its edges have to be unmistakable.
-  road: { color: 0xb9b09a, secondary: 0xa39a84 },
+  sky: { top: 0x4a90e2, bottom: 0xe0f2fe },
+  fog: { color: 0xdaf0ff, density: 0.0004 },
+  sun: { color: 0xfff7e6, intensity: 1.8, position: [0.1, 0.9, -0.2] },
+  ground: { color: 0xeef5f8, accent: 0xd8e3e8 },
+  // Darker than the salt around it on purpose — leaving the road is a fail,
+  // so the edges have to stay unmistakable even under whiteout glare.
+  road: { color: 0xb7c4cc, secondary: 0xdf8800 },
   props: [
-    { type: 'post', spacing: 100, lateral: 11.5, height: 3.2, color: 0xd94b2b, bothSides: true },
-    { type: 'rock', spacing: 220, lateral: 40, scatter: 24, scale: 1.6, color: 0xb8ad97 },
+    {
+      type: 'distance_marker',
+      spacing: 100,
+      lateral: 23.0,
+      height: 1.8,
+      color: 0xd97706,
+      bothSides: true,
+    },
+    {
+      type: 'timing_tower',
+      spacing: 500,
+      lateral: 35.0,
+      height: 12.0,
+      color: 0x475569,
+      bothSides: false,
+    },
   ],
 };

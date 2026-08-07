@@ -12,9 +12,13 @@ import * as THREE from 'three';
 /** @param {object} entry @returns {THREE.BufferGeometry} */
 function geometryFor(entry) {
   const scale = entry.scale ?? 1;
+  const h = entry.height;
   switch (entry.type) {
     case 'post':
-      return new THREE.BoxGeometry(0.16, entry.height ?? 2.4, 0.16);
+    case 'distance_marker':
+      return new THREE.BoxGeometry(0.16, h ?? 2.4, 0.16);
+    case 'hazard_strobe':
+      return new THREE.BoxGeometry(0.28, h ?? 2.5, 0.28);
     case 'lamp':
       return new THREE.BoxGeometry(1.6, 0.18, 0.5);
     case 'rock':
@@ -22,11 +26,34 @@ function geometryFor(entry) {
     case 'tree':
       return new THREE.ConeGeometry(1.1 * scale, 4.6 * scale, 6);
     case 'pylon':
-      return new THREE.BoxGeometry(1.4, entry.height ?? 24, 1.4);
+    case 'timing_tower':
+      return new THREE.BoxGeometry(2.2 * scale, h ?? 12, 2.2 * scale);
+    case 'neon_arch':
+      // Pillars that read as arch uprights at speed; a full arch span would
+      // need per-instance multi-mesh and is not worth the draw cost.
+      return new THREE.BoxGeometry(0.4, h ?? 6.5, 0.4);
+    case 'cat_eye_led':
+    case 'runway_light':
+      return new THREE.BoxGeometry(0.4 * scale, h ?? 0.2, 0.55 * scale);
+    case 'snow_bank':
+      return new THREE.BoxGeometry(4.2 * scale, h ?? 1.5, 7 * scale);
+    case 'windsock':
+      return new THREE.ConeGeometry(0.55 * scale, h ?? 5, 6);
+    case 'radar_dish':
+      // Wide dish on a stubby base — cylinder reads as a tracking antenna.
+      return new THREE.CylinderGeometry(3.6 * scale, 0.9 * scale, h ?? 10, 12);
+    case 'magnetic_guide_rail':
+      return new THREE.BoxGeometry(0.4, h ?? 0.8, 2.8);
     default:
-      return new THREE.BoxGeometry(0.4, 1, 0.4);
+      return new THREE.BoxGeometry(0.4, h ?? 1, 0.4);
   }
 }
+
+/** Prop types whose Y is the top of a hanging fixture, not the centre of a post. */
+const HANGING = new Set(['lamp']);
+
+/** Low fixtures that sit on the deck rather than standing as posts. */
+const DECK_LEVEL = new Set(['cat_eye_led', 'runway_light', 'magnetic_guide_rail', 'snow_bank']);
 
 export class Props {
   /** @param {THREE.Scene} scene */
@@ -70,7 +97,7 @@ export class Props {
         emissiveIntensity: entry.emissive ? 0.9 : 0,
       });
       const mesh = new THREE.InstancedMesh(geo, mat, count);
-      mesh.castShadow = quality.shadows && entry.type !== 'lamp';
+      mesh.castShadow = quality.shadows && entry.type !== 'lamp' && !DECK_LEVEL.has(entry.type);
       mesh.frustumCulled = false;
 
       let i = 0;
@@ -78,13 +105,10 @@ export class Props {
         for (const side of sides) {
           const scatter = entry.scatter ? (rand() - 0.5) * entry.scatter : 0;
           const lateral = entry.lateral ?? course.roadWidth / 2 + 2;
-          const height =
-            entry.type === 'lamp'
-              ? entry.height ?? 6
-              : (entry.height ?? 2.4) / 2 + (entry.type === 'tree' ? 1.6 : 0);
+          const height = propCentreY(entry);
 
           dummy.position.set(side * (lateral + Math.abs(scatter)), height, z + scatter);
-          dummy.rotation.set(0, rand() * Math.PI, 0);
+          dummy.rotation.set(0, entry.type === 'windsock' ? 0 : rand() * Math.PI, 0);
           dummy.updateMatrix();
           if (i < count) mesh.setMatrixAt(i++, dummy.matrix);
         }
@@ -105,4 +129,13 @@ export class Props {
     this.group.clear();
     this.meshes = [];
   }
+}
+
+/** World Y for the centre of a prop mesh given its authored height. */
+function propCentreY(entry) {
+  const h = entry.height ?? 2.4;
+  if (HANGING.has(entry.type)) return h;
+  if (entry.type === 'tree') return h / 2 + 1.6;
+  if (DECK_LEVEL.has(entry.type)) return h / 2;
+  return h / 2;
 }

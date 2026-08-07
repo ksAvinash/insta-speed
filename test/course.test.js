@@ -13,12 +13,13 @@ import superbike from '../src/vehicles/specs/superbike.js';
 import semiTruck from '../src/vehicles/specs/semi-truck.js';
 
 import saltFlats from '../src/scenes/defs/salt-flats.js';
-import tunnel from '../src/scenes/defs/tunnel.js';
-import coastalBridge from '../src/scenes/defs/coastal-bridge.js';
-import snowPass from '../src/scenes/defs/snow-pass.js';
+import cyberTunnel from '../src/scenes/defs/cyber-tunnel.js';
+import glacialRunway from '../src/scenes/defs/glacial-runway.js';
+import mojaveAirstrip from '../src/scenes/defs/mojave-airstrip.js';
+import maglevSpire from '../src/scenes/defs/maglev-spire.js';
 
 const STOCK = [hyperGt, superbike, semiTruck];
-const SCENES = [saltFlats, tunnel, coastalBridge, snowPass];
+const SCENES = [saltFlats, cyberTunnel, glacialRunway, mojaveAirstrip, maglevSpire];
 
 /**
  * Builds a player can actually be driving.
@@ -26,7 +27,7 @@ const SCENES = [saltFlats, tunnel, coastalBridge, snowPass];
  * Upgrades are not cosmetic and they are not uniformly good: a part changes the
  * spec the sim runs, so it can take a pairing that used to be winnable and make
  * it unwinnable. That is not hypothetical — the default tyre ladder's smallest
- * step pushes the superbike off Storm Deck Bridge, which is why it has its own
+ * step pushes the superbike off a windy deck, which is why it has its own
  * lateral-weighted ladder in `specs/superbike.js`.
  *
  * Every part maxed *alone* is included as well as the full build, because a
@@ -242,8 +243,8 @@ test('the clock catches a run nursed down to a crawl', () => {
   for (const [spec, scene, kph] of [
     [hyperGt, saltFlats, 100],
     [hyperGt, saltFlats, 600],
-    [superbike, tunnel, 200],
-    [superbike, tunnel, 400],
+    [superbike, cyberTunnel, 200],
+    [superbike, cyberTunnel, 400],
     [semiTruck, saltFlats, 200],
   ]) {
     const r = run(spec, scene, creep, kph);
