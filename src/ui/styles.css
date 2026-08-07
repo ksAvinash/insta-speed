@@ -155,10 +155,6 @@ body[data-state='countdown'] #brake-surface {
   animation: timeout-border-pulse var(--pulse) ease-in-out infinite;
 }
 
-.readout--time.is-critical {
-  /* stroke colour handled in JS for Safari */
-}
-
 .readout--distance {
   text-align: right;
   flex-direction: column;

@@ -32,12 +32,22 @@ export const TILE_METRES = 24;
  * @param {number} runway
  */
 export function makeRoadTexture(def, roadWidth, runway) {
+  // 512 tall tiles: same one plane at runtime, sharper grain at speed.
   const { c, ctx } = canvas(256, 512);
   const base = hex(def.road.color);
   const alt = hex(def.road.secondary ?? def.road.color);
   const surface = def.surface ?? 'tarmac';
 
   ctx.fillStyle = base;
+  ctx.fillRect(0, 0, 256, 512);
+
+  // Subtle vignette at the lane edges so the road reads as a channel.
+  const edgeShade = ctx.createLinearGradient(0, 0, 256, 0);
+  edgeShade.addColorStop(0, 'rgba(0,0,0,0.22)');
+  edgeShade.addColorStop(0.12, 'rgba(0,0,0,0)');
+  edgeShade.addColorStop(0.88, 'rgba(0,0,0,0)');
+  edgeShade.addColorStop(1, 'rgba(0,0,0,0.22)');
+  ctx.fillStyle = edgeShade;
   ctx.fillRect(0, 0, 256, 512);
 
   // Surface-specific grain. Same draw cost as the old random streaks — just
@@ -141,16 +151,30 @@ export function makeRoadTexture(def, roadWidth, runway) {
   ctx.globalAlpha = 1;
 
   // Solid edge lines — high contrast so leaving the road is never ambiguous.
-  const edge = surface === 'salt' || surface === 'ice_tarmac' || surface === 'snow' ? '#1a1f24' : '#f2f2f0';
+  const lightEdge = surface === 'salt' || surface === 'ice_tarmac' || surface === 'snow';
+  const edge = lightEdge ? '#1a1f24' : '#f2f2f0';
+  const outer = lightEdge ? '#0a0c10' : '#ffffff';
+  ctx.fillStyle = outer;
+  ctx.fillRect(4, 0, 4, 512);
+  ctx.fillRect(248, 0, 4, 512);
   ctx.fillStyle = edge;
-  ctx.fillRect(8, 0, 7, 512);
-  ctx.fillRect(241, 0, 7, 512);
+  ctx.fillRect(10, 0, 8, 512);
+  ctx.fillRect(238, 0, 8, 512);
+
+  // Rumble ticks just inside the edge — motion cue at speed, free in the map.
+  ctx.fillStyle = edge;
+  ctx.globalAlpha = 0.55;
+  for (let y = 0; y < 512; y += 28) {
+    ctx.fillRect(20, y, 10, 10);
+    ctx.fillRect(226, y, 10, 10);
+  }
+  ctx.globalAlpha = 1;
 
   // Dashed centre line: two dashes per tile.
   ctx.fillStyle = edge;
-  for (let i = 0; i < 2; i++) ctx.fillRect(124, i * 256 + 40, 8, 176);
+  for (let i = 0; i < 2; i++) ctx.fillRect(122, i * 256 + 36, 12, 168);
 
-  return finish(c, 1, runway / TILE_METRES);
+  return finish(c, 1, runway / TILE_METRES, 12);
 }
 
 /** @param {import('../scenes/registry.js').SceneDef} def */

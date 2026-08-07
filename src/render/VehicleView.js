@@ -164,6 +164,26 @@ export class VehicleView {
       mesh.castShadow = quality.shadows && !part.glass && !part.emissive;
       this.chassis.add(mesh);
       this.disposables.push(mesh);
+
+      // Soft headlight bloom — additive plane, medium+ only, zero cost when off.
+      if (part.emissive && (quality.pixelRatio ?? 1) >= 1.5) {
+        const [sx, sy] = part.size;
+        const glow = new THREE.Mesh(
+          new THREE.PlaneGeometry(sx * 1.35, sy * 1.6),
+          new THREE.MeshBasicMaterial({
+            color: part.emissive,
+            transparent: true,
+            opacity: 0.45,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+            toneMapped: false,
+            side: THREE.DoubleSide,
+          }),
+        );
+        glow.position.set(part.pos[0], part.pos[1], part.pos[2] + (part.size[2] ?? 0.2) * 0.55);
+        this.chassis.add(glow);
+        this.disposables.push(glow);
+      }
     }
 
     this.#buildWheels(spec, quality);
@@ -205,6 +225,15 @@ export class VehicleView {
     const markGeo = new THREE.BoxGeometry(width * 1.04, w.radius * 1.92, w.radius * 0.14);
     const markMat = new THREE.MeshBasicMaterial({ color: look.stripe });
 
+    // 5-spoke star on medium+ only — a few boxes, readable in the garage.
+    const richWheels = (quality.pixelRatio ?? 1) >= 1.5;
+    let spokeGeo;
+    let spokeMat;
+    if (richWheels) {
+      spokeGeo = new THREE.BoxGeometry(width * 0.22, w.radius * 0.9, w.radius * 0.1);
+      spokeMat = new THREE.MeshLambertMaterial({ color: rimColor });
+    }
+
     // Shared caliper / disc pieces for brake upgrades — parented to the hub so
     // they steer with the wheel; at speed they read as a coloured blur.
     const brake = BRAKE_LOOK[clamp(this.levels.brakes, 0, 3)];
@@ -237,6 +266,14 @@ export class VehicleView {
         hub.add(new THREE.Mesh(hubGeo, hubMat));
         hub.add(new THREE.Mesh(markGeo, markMat));
 
+        if (richWheels) {
+          for (let s = 0; s < 5; s++) {
+            const spoke = new THREE.Mesh(spokeGeo, spokeMat);
+            spoke.rotation.z = (s / 5) * Math.PI;
+            hub.add(spoke);
+          }
+        }
+
         if (brake) {
           hub.add(new THREE.Mesh(discGeo, discMat));
           const cal = new THREE.Mesh(caliperGeo, caliperMat);
@@ -251,6 +288,7 @@ export class VehicleView {
     }
 
     this._wheelShared = [tyreGeo, tyreMat, rimGeo, rimMat, hubGeo, hubMat, markGeo, markMat];
+    if (richWheels) this._wheelShared.push(spokeGeo, spokeMat);
     if (brake) this._wheelShared.push(discGeo, discMat, caliperGeo, caliperMat);
   }
 

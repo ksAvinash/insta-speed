@@ -44,6 +44,10 @@ export class RoadBuilder {
     road.receiveShadow = true;
     this.#add(road);
 
+    // Raised kerbs — two long boxes, one draw each. Huge readability win for
+    // "still on the road" without any per-frame cost.
+    this.#buildKerbs(def, roadWidth, runway);
+
     if (def.tunnel) this.#buildTunnel(def, course);
 
     this.#buildTargetLine(target, roadWidth);
@@ -225,15 +229,58 @@ export class RoadBuilder {
     this.#add(block);
   }
 
+  #buildKerbs(def, roadWidth, runway) {
+    const half = roadWidth / 2 + 0.18;
+    // Pale / hazard-ish on bright scenes, darker on night decks.
+    const pale = (def.road?.color ?? 0) > 0x888888;
+    const mat = new THREE.MeshLambertMaterial({
+      color: pale ? 0x1a1f24 : 0xe8e8ec,
+    });
+    const geo = new THREE.BoxGeometry(0.36, 0.22, runway);
+    for (const side of [-1, 1]) {
+      const kerb = new THREE.Mesh(geo, mat);
+      kerb.position.set(side * half, 0.1, runway / 2);
+      kerb.receiveShadow = true;
+      this.#add(kerb, { shared: true });
+    }
+  }
+
   #buildTunnel(def, course) {
     const radius = course.roadWidth * 0.78;
     const shell = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, course.runway, 18, 1, true),
-      new THREE.MeshLambertMaterial({ color: def.ground.accent ?? 0x22262c, side: THREE.BackSide }),
+      new THREE.CylinderGeometry(radius, radius, course.runway, 20, 1, true),
+      new THREE.MeshLambertMaterial({
+        color: def.ground.accent ?? 0x22262c,
+        side: THREE.BackSide,
+        emissive: def.road?.secondary ?? 0x061018,
+        emissiveIntensity: 0.12,
+      }),
     );
     shell.rotation.x = Math.PI / 2;
     shell.position.set(0, radius * 0.34, course.runway / 2);
     this.#add(shell);
+
+    // Sparse rib rings — InstancedMesh so hundreds stay one draw.
+    const ribCount = Math.min(80, Math.floor(course.runway / 28));
+    if (ribCount > 0) {
+      const ribGeo = new THREE.TorusGeometry(radius * 0.98, 0.08, 6, 20);
+      const ribMat = new THREE.MeshBasicMaterial({
+        color: def.road?.secondary ?? 0x06b6d4,
+        transparent: true,
+        opacity: 0.55,
+        toneMapped: false,
+      });
+      const ribs = new THREE.InstancedMesh(ribGeo, ribMat, ribCount);
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < ribCount; i++) {
+        dummy.position.set(0, radius * 0.34, (i + 0.5) * (course.runway / ribCount));
+        dummy.rotation.set(Math.PI / 2, 0, 0);
+        dummy.updateMatrix();
+        ribs.setMatrixAt(i, dummy.matrix);
+      }
+      ribs.instanceMatrix.needsUpdate = true;
+      this.#add(ribs);
+    }
   }
 
   #add(obj, opts = {}) {

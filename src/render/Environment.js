@@ -9,19 +9,26 @@ const SKY_VERT = /* glsl */ `
   }
 `;
 
-// Two-stop gradient plus a soft horizon band so the sky reads as atmosphere
-// rather than a flat wash — still one draw, no cubemap.
+// Atmosphere on the existing sky sphere: gradient, horizon haze, soft sun disc.
+// Still one draw — no cubemap, no extra geometry.
 const SKY_FRAG = /* glsl */ `
   uniform vec3 top;
   uniform vec3 bottom;
   uniform vec3 horizon;
+  uniform vec3 sunDir;
+  uniform vec3 sunColor;
   varying vec3 vWorld;
   void main() {
-    float h = normalize(vWorld).y;
+    vec3 dir = normalize(vWorld);
+    float h = dir.y;
     vec3 col = mix(bottom, top, smoothstep(-0.12, 0.55, h));
     // Thin bright band at the horizon — sells distance without a second mesh.
     float band = exp(-h * h * 48.0);
     col = mix(col, horizon, band * 0.42);
+    // Soft sun disc + halo (direction from scene sun).
+    float sun = max(dot(dir, normalize(sunDir)), 0.0);
+    col += sunColor * pow(sun, 512.0) * 1.4;
+    col += sunColor * pow(sun, 24.0) * 0.18;
     // Slight darkening at the zenith so the top does not blow out under ACES.
     col *= 1.0 - smoothstep(0.35, 1.0, h) * 0.08;
     gl_FragColor = vec4(col, 1.0);
@@ -51,6 +58,8 @@ export class Environment {
     // Horizon leans toward the brighter of the two stops so desert sunsets and
     // cold twilight both get a readable band without per-scene authoring.
     const horizon = bottom.clone().lerp(top, 0.35).multiplyScalar(1.12);
+    const sunDir = new THREE.Vector3(...(def.sun.position ?? [0.2, 0.8, -0.3])).normalize();
+    const sunColor = new THREE.Color(def.sun.color ?? 0xfff0d0);
 
     const sky = new THREE.Mesh(
       new THREE.SphereGeometry(3000, 24, 16),
@@ -59,6 +68,8 @@ export class Environment {
           top: { value: top },
           bottom: { value: bottom },
           horizon: { value: horizon },
+          sunDir: { value: sunDir },
+          sunColor: { value: sunColor },
         },
         vertexShader: SKY_VERT,
         fragmentShader: SKY_FRAG,

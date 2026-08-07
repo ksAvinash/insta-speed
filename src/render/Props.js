@@ -180,7 +180,9 @@ export class Props {
       const mat = new THREE.MeshLambertMaterial({
         color: entry.color ?? 0xcccccc,
         emissive: entry.emissive ? entry.color ?? 0xffffff : 0x000000,
-        emissiveIntensity: entry.emissive ? 0.95 : 0,
+        // Slightly hotter emissives so neon / LEDs read at distance without
+        // bloom or extra draws.
+        emissiveIntensity: entry.emissive ? 1.15 : 0,
       });
       const mesh = new THREE.InstancedMesh(geo, mat, count);
       mesh.castShadow = quality.shadows && entry.type !== 'lamp' && !DECK_LEVEL.has(entry.type);
