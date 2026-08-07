@@ -657,17 +657,28 @@ body[data-state='countdown'] #brake-surface {
   background: transparent;
 }
 
+/*
+  Full-bleed dock: cancel #garage padding on L/R/B so the black gradient
+  reaches the screen edges (no gaps around Launch), then re-apply padding
+  inside for the content.
+*/
 .garage-chrome--bottom {
-  padding-top: 18px;
-  max-height: min(44vh, 380px);
+  margin-left: calc(-1 * (var(--safe-l) + var(--pad)));
+  margin-right: calc(-1 * (var(--safe-r) + var(--pad)));
+  margin-bottom: calc(-1 * (var(--safe-b) + var(--pad)));
+  padding: 20px calc(var(--safe-r) + var(--pad)) calc(var(--safe-b) + var(--pad))
+    calc(var(--safe-l) + var(--pad));
+  max-height: min(48vh, 420px);
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Solid at the bottom edge; fade only into the stage above. */
   background: linear-gradient(
     0deg,
-    rgba(6, 8, 12, 0.98) 0%,
-    rgba(6, 8, 12, 0.94) 50%,
-    rgba(6, 8, 12, 0.55) 82%,
+    rgb(6, 8, 12) 0%,
+    rgba(6, 8, 12, 0.98) 28%,
+    rgba(6, 8, 12, 0.9) 55%,
+    rgba(6, 8, 12, 0.55) 78%,
     rgba(6, 8, 12, 0) 100%
   );
 }
@@ -1662,15 +1673,23 @@ body[data-state='countdown'] #brake-surface {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 12px;
   margin-top: 8px;
+  width: 100%;
 }
 
 .garage-foot .actions {
-  justify-content: center;
+  display: flex;
+  justify-content: stretch;
+  width: 100%;
+  margin: 0;
+  gap: 0;
 }
 
+/* Full-width launch — no empty side gutters inside the dock. */
 .garage-foot .btn--launch {
   width: 100%;
-  max-width: 320px;
+  max-width: none;
+  margin: 0;
+  border-radius: 12px;
 }
 
 .tool-btn {
