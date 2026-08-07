@@ -15,6 +15,10 @@ export default {
   crosswind: 5,
   ambientTempC: -8,
 
+  // A third of the grip means the longest stops in the game — the best-paying
+  // scene, and the one where brake upgrades show up most clearly.
+  scoreMultiplier: 1.35,
+
   roadWidth: 14.7,
   wallOffset: 55,
 

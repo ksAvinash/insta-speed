@@ -15,6 +15,9 @@ export default {
   crosswind: 0,
   ambientTempC: 16,
 
+  // Narrow, but calm — a small premium for the walls being that close.
+  scoreMultiplier: 1.05,
+
   roadWidth: 10.5,
   wallOffset: 30,
   tunnel: true,

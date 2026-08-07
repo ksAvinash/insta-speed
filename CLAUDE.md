@@ -7,8 +7,12 @@ non-obvious bugs that are easy to reintroduce.
 ## What this project is
 
 `insta-speed` is a browser game. The player is launched instantly at up to
-600 km/h and must stop on a target line using only the brakes. It runs on
+900 km/h and must stop on a target line using only the brakes. It runs on
 desktop and phones with no install.
+
+Progression has two axes. Stopping cleanly unlocks the next 100 km/h rung on a
+vehicle's ladder; run scores bank credits, which buy parts, which extend how far
+that ladder goes.
 
 The design brief was: real physics, vehicles and scenery that are trivial to
 add, works on mobile and desktop. Those three constraints explain most of the
@@ -28,7 +32,7 @@ architecture.
 ```bash
 npm run dev        # https://localhost:5173 (HTTPS is deliberate, see below)
 npm run dev:mobile # same, bound to the LAN for phone testing
-npm test           # 102 tests, ~2s
+npm test           # 480 tests, ~6s
 npm run build      # static bundle into dist/
 ```
 
@@ -39,7 +43,7 @@ src/
   core/     Game.js (state machine)  Loop.js (fixed step)  course.js  speeds.js
             score.js  Bus.js  Storage.js
   physics/  VehicleSim.js  Tire.js  Surface.js  constants.js
-  vehicles/ registry.js  specs/*.js     <- one data file per vehicle
+  vehicles/ registry.js  upgrades.js  specs/*.js   <- one data file per vehicle
   scenes/   registry.js  defs/*.js      <- one data file per scene
   render/   Renderer  World  Environment  RoadBuilder  Props  VehicleView  Chase  trackFrame  textures
   input/    InputManager  GyroSource  KeyboardSource  TouchSource
@@ -124,6 +128,35 @@ arrow-function class fields instead (see `Loop.js`, `GyroSource.js`,
    lifts its rear wheel under braking and drifts 9 m with a driver actively
    correcting. Changing either needs the test matrix re-run.
 
+10. **Never mutate a vehicle spec.** The specs in `vehicles/specs/` are module
+    singletons shared by every run, the garage preview and the tests.
+    `applyUpgrades` clones `tire` and `brake` before writing to them — a
+    shallow spread of the spec leaves those two aliased, and one purchase
+    silently re-tunes the vehicle everywhere, permanently.
+
+11. **Derived specs must stay memoised.** `Tire.peakSlip` caches on the tyre
+    curve object identity, so every fresh derived spec costs a 200-sample sweep
+    plus 40 golden-section iterations. The garage rebuilds the course on every
+    interaction; returning a new object per call redoes that solve several
+    times a click. `applyUpgrades` returns the base spec untouched for a stock
+    build, which also keeps the common case free.
+
+12. **An upgrade can make a pairing unwinnable.** Parts change the spec the sim
+    runs, and they are not uniformly good. The default tyre ladder's *smallest*
+    step — `tire.D` up 5% — pushes the superbike off Storm Deck Bridge: more
+    longitudinal bite deepens the load transfer that already lifts its rear
+    wheel, and a stock 5.1 m drift goes past the 6.65 m edge of the deck. That
+    is why the bike has its own lateral-weighted ladder in its spec file, and
+    why `test/course.test.js` sweeps builds as well as vehicles.
+
+13. **Upgrades cannot pay off inside a run.** `buildCourse` places the target
+    line by simulating the vehicle you are actually driving, so better brakes
+    move the line closer and par shrinks with it — the raw score at a given
+    rung is very nearly invariant. The reward lives on the rung instead:
+    `speedTiers` extends the ladder and `core/score.js` pays a multiplier for
+    the faster launch. Any attempt to make a part "worth more points" directly
+    is fighting that, and will just re-derive to zero.
+
 ## Tuned vs. derived values
 
 Most of the model is derived from real vehicle dynamics. Three constants are
@@ -144,13 +177,24 @@ as game-design knobs, not physics:
 1,500 kg car at μ≈1.0 stops from 100 km/h in **39–43 m**. If a physics change
 moves that number outside the window, the change is wrong — not the test.
 
-`test/course.test.js` runs all 3 vehicles against all 4 scenes across the speed
-ladder and asserts each pairing is winnable: a lane-keeping driver stays on the
-road, and the target line is reachable. It also checks that a perfectly judged
-run lands on par, that the judgement window has not grown with the ladder, and
-that target distance grows monotonically with launch speed. **Any new vehicle or
-scene automatically joins this matrix** once added to the import list at the top
-of the file. Add it there.
+`test/course.test.js` runs all 3 vehicles, in all 6 builds a player can reach,
+against all 4 scenes across the speed ladder, and asserts each pairing is
+winnable: a lane-keeping driver stays on the road, and the target line is
+reachable. It also checks that a perfectly judged run lands on par, that the
+judgement window has not grown with the ladder, and that target distance grows
+monotonically with launch speed. **Any new vehicle or scene automatically joins
+this matrix** once added to the import list at the top of the file. Add it there.
+
+The build axis is stock, each of the four parts maxed alone, and everything
+maxed — 440 tests, ~6 s. One part with nothing to balance it is both the shape
+most likely to break a pairing and what a player saving for a single expensive
+component is actually driving.
+
+`test/upgrades.test.js` covers `vehicles/upgrades.js` — registry-free for the
+same reason as `score.js`. The load-bearing cases are that the base spec is
+never mutated, that derived specs are memoised, and that the tier caps match
+the numbers the matrix was tuned against (GT 600→900, bike 400→500, truck
+300→400).
 
 `test/score.test.js` covers `core/score.js` — kept registry-free for exactly
 that reason. The load-bearing case is that a quick stop 200 m short of the line

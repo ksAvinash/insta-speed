@@ -42,7 +42,8 @@ export default {
   },
   tire: { compound: 'road', B: 10, C: 1.9, D: 1.2, E: 0.97 },
 
-  maxLaunchKph: 450,         // TOP of the ladder, not the starting speed
+  maxLaunchKph: 450,         // TOP of the STOCK ladder, not the starting speed
+  speedTiers: [500, 550, 600], // optional — cap at upgrade tier 1, 2 and 3
   model: null,
   body: { parts: [...], wheels: {...} },
 };
@@ -52,6 +53,45 @@ export default {
 100 km/h more per clean stop (`src/core/speeds.js`), so this sets how long the
 ladder is and what the final run feels like. Courses are sized per rung, so a
 high cap does not make the early runs any longer.
+
+### Upgrades
+
+Every vehicle gets the four part ladders in `src/vehicles/upgrades.js` for free
+— tyres, brakes, aero and chassis, three levels each. Two optional fields tune
+how a particular vehicle responds.
+
+**`speedTiers`** is the cap once every *gating* part (tyres, brakes and aero;
+chassis is not a gate) reaches level 1, 2 and 3. Omit it and the vehicle never
+launches faster than stock, however much is fitted — the parts still shorten its
+stop. Repeat a value to hold the extension back: the superbike's
+`[400, 400, 500]` means only a completely built bike gets its extra rung.
+
+**`upgrades`** overrides a part's ladder for this vehicle:
+
+```js
+upgrades: {
+  tyres: [
+    { label: 'Stock compound' },                                   // level 0
+    { label: 'Sport radial', mul: { 'tire.D': 1.01 }, set: { 'tire.lateralGrip': 1.13 } },
+    // ...one entry per level, MAX_LEVEL + 1 in total
+  ],
+},
+```
+
+A step is three optional maps of dotted spec paths: `mul` multiplies, `add`
+adds, `set` replaces. Steps are absolute against stock rather than cumulative,
+so level 3 is exactly what its own entry says.
+
+Override a ladder when the default one fights the vehicle's character. The
+superbike is the worked example: raising `tire.D` on a 1.42 m wheelbase deepens
+the load transfer that already lifts its rear wheel, and the default ladder's
+*smallest* step is enough to push it off Storm Deck Bridge. Its tyres buy
+lateral grip instead, which takes a fully built bike from a 5.1 m drift down to
+2.2 m on the same road.
+
+That is the general warning: **an upgrade can make a pairing unwinnable.** The
+test matrix covers stock, each part maxed alone and the full build, so it will
+catch it — but only if the numbers are run through it.
 
 ### Choosing numbers that work
 
@@ -170,14 +210,19 @@ explicit import list at the top:
 
 ```js
 import myCar from '../src/vehicles/specs/my-car.js';
-const VEHICLES = [hyperGt, superbike, semiTruck, myCar];
+const STOCK = [hyperGt, superbike, semiTruck, myCar];
 ```
 
 It then automatically joins the full matrix, which sweeps the speed ladder and
-asserts for every vehicle × scene × speed that a lane-keeping driver stays on
-the road, that the target line is reachable, that a perfectly judged run lands
-on par, that the judgement window has not grown, and that target distance grows
-with launch speed. Run `npm test`.
+asserts for every vehicle × build × scene × speed that a lane-keeping driver
+stays on the road, that the target line is reachable, that a perfectly judged
+run lands on par, that the judgement window has not grown, and that target
+distance grows with launch speed. Run `npm test`.
+
+"Build" is the second axis: stock, each of the four parts maxed on its own, and
+everything maxed. A single part with nothing to balance it is the shape most
+likely to break a pairing, and it is exactly what a player saving up for one
+expensive component is driving.
 
 If your addition fails those, the pairing is not winnable — fix the numbers
 rather than the test.

@@ -4,6 +4,10 @@ import {
   scoreRun,
   rateRun,
   scoringWindow,
+  speedMultiplier,
+  runMultiplier,
+  creditsFor,
+  firstClearBonus,
   PRECISION_POINTS,
   PACE_POINTS,
 } from '../src/core/score.js';
@@ -96,4 +100,67 @@ test('running out of time scores nothing, however close to the line', () => {
   // Half a metre off the line is an S-grade stop — but only if you stopped.
   const r = scoreRun({ clean: false, error: 0.1, seconds: 30, ...course });
   assert.equal(r.score, 0);
+});
+
+/* ------------------------------ multipliers ------------------------------ */
+
+test('the multiplier pays for launch speed', () => {
+  assert.equal(speedMultiplier(100), 1, 'the opening rung is the reference');
+  assert.equal(speedMultiplier(600), 2);
+  assert.equal(speedMultiplier(900), 2.6);
+
+  // Monotonic all the way up, and never below 1 — a rung under the reference
+  // must not be able to pay a penalty.
+  let last = 0;
+  for (let kph = 100; kph <= 900; kph += 100) {
+    const m = speedMultiplier(kph);
+    assert.ok(m > last, `${kph} km/h should pay more than the rung below`);
+    last = m;
+  }
+  assert.equal(speedMultiplier(50), 1, 'below the reference is still the base rate');
+});
+
+test('the scene multiplier compounds with the speed one', () => {
+  assert.equal(runMultiplier(100, 1), 1);
+  assert.equal(runMultiplier(600, 1.35), speedMultiplier(600) * 1.35);
+  assert.equal(runMultiplier(600), speedMultiplier(600), 'a scene without one is neutral');
+});
+
+test('the multiplier scales a score without ever rescuing a miss', () => {
+  const plain = run({ error: 1 });
+  const doubled = run({ error: 1, multiplier: 2 });
+  assert.ok(Math.abs(doubled.score - plain.score * 2) <= 1, 'both halves scale');
+
+  // The load-bearing property of the whole scoring model: pace is multiplied by
+  // precision, so a quick stop 200 m short is worth nothing at any multiplier.
+  assert.equal(run({ error: 200, seconds: 3, multiplier: 2.6 }).score, 0);
+  assert.equal(
+    scoreRun({ clean: false, error: 0.1, seconds: 10, multiplier: 2.6, ...course }).score,
+    0,
+    'a failed run is zero however fast it was launched',
+  );
+});
+
+test('a faster rung is worth more than the same stop on a slower one', () => {
+  // This is the entire reason to buy upgrades: the course adapts to the vehicle,
+  // so the raw score barely moves — the payoff has to live on the rung.
+  const opening = run({ multiplier: runMultiplier(100, 1) });
+  const topRung = run({ multiplier: runMultiplier(900, 1.35) });
+  assert.ok(topRung.score > opening.score * 3, `${topRung.score} against ${opening.score}`);
+});
+
+test('credits follow the score, and first clears pay a bonus on top', () => {
+  assert.equal(creditsFor(100000), 1000);
+  assert.equal(creditsFor(0), 0);
+
+  let last = 0;
+  for (let kph = 100; kph <= 900; kph += 100) {
+    const bonus = firstClearBonus(kph);
+    assert.ok(bonus > last, `${kph} km/h should pay a bigger first clear`);
+    last = bonus;
+  }
+
+  // A first clear has to be worth a meaningful slice of the cheapest part, or
+  // working through the roster is not a real way to fund the first upgrade.
+  assert.ok(firstClearBonus(100) >= 400);
 });

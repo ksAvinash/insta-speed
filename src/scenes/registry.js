@@ -18,6 +18,8 @@
  * @property {number} [coastSeconds] override the judgement window before the
  *   braking point — see core/course.js. The target distance itself is derived,
  *   never authored.
+ * @property {number} [scoreMultiplier] pays for the scene's difficulty, on top
+ *   of the launch-speed multiplier — see core/score.js. Defaults to 1.
  * @property {number} [wallOffset] m past the line before the wall
  * @property {number} [roadWidth] m — leaving it is a fail
  * @property {{ top: number, bottom: number }} sky vertical gradient colours

@@ -28,6 +28,12 @@ export default {
   tire: { compound: 'semi-slick', B: 11, C: 1.9, D: 1.35, E: 0.97 },
 
   maxLaunchKph: 600,
+  // The one vehicle in the roster that takes the full extension. Downforce
+  // scales with v^2, so the faster it launches the harder it can brake, and at
+  // 900 km/h on packed snow it still holds a lane inside a metre. What actually
+  // gates it is heat: on stock rotors a 900 km/h stop cooks to 2,180 °C and
+  // needs 2,038 m, against 1,583 m once the brakes are fitted.
+  speedTiers: [700, 800, 900],
   model: null,
   body: {
     parts: [

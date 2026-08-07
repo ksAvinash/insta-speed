@@ -28,6 +28,11 @@ game.selectFastestUnlocked();
 
 const garage = new Garage(game, () => {
   world.buildVehicle(game.vehicle);
+  // Fitting a part changes the spec the showcase is posed from, so the standing
+  // sim is rebuilt here as well as on entering the garage.
+  showcaseSim = new VehicleSim(game.vehicle, game.scene, {
+    launchSpeedKph: game.launchSpeedKph,
+  });
   saveSettings({ vehicleId: game.vehicleId, sceneId: game.sceneId });
 });
 
