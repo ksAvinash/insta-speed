@@ -5,6 +5,9 @@ import { clamp } from '../physics/constants.js';
  * cached element references every frame, and each is compared against its last
  * value so the browser is not asked to re-layout text that has not changed.
  */
+/** Seconds left when the screen border starts pulsing. */
+const TIMEOUT_WARN_FROM = 5;
+
 export class Hud {
   constructor() {
     this.root = document.getElementById('hud');
@@ -23,6 +26,7 @@ export class Hud {
     this.flagLock = document.getElementById('flag-lock');
     this.flagFade = document.getElementById('flag-fade');
     this.hint = document.getElementById('hud-hint');
+    this.timeoutWarn = document.getElementById('timeout-warn');
     this.last = {};
   }
 
@@ -59,8 +63,9 @@ export class Hud {
     // sits under it, and the colour does the urgency.
     this.#text(this.time, 'time', sim.elapsed.toFixed(1));
     const left = (this.limit ?? Infinity) - sim.elapsed;
-    this.#flag(this.timeBox, 'tight', left <= 5, 'is-tight');
+    this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM, 'is-tight');
     this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
+    this.#timeoutBorder(left);
 
     const over = distanceToTarget < 0;
     this.#text(
@@ -95,11 +100,51 @@ export class Hud {
     this.#text(this.hint, 'hint', text);
   }
 
+  /**
+   * Red border pulse from 5 s remaining → 0. Urgency (0–1) drives thickness,
+   * opacity and pulse rate via CSS custom properties.
+   * @param {number} left seconds remaining on the run clock
+   */
+  #timeoutBorder(left) {
+    if (!this.timeoutWarn) return;
+    const active = left > 0 && left <= TIMEOUT_WARN_FROM;
+    if (!active) {
+      if (this.last.timeoutBorder) {
+        this.last.timeoutBorder = false;
+        this.timeoutWarn.hidden = true;
+        this.timeoutWarn.classList.remove('is-critical');
+      }
+      return;
+    }
+
+    // 0 at 5 s, 1 as the clock hits zero.
+    const urgency = clamp(1 - left / TIMEOUT_WARN_FROM, 0, 1);
+    // Quantise so we are not writing CSS vars every frame for no visual change.
+    const bucket = Math.round(urgency * 20) / 20;
+    if (this.last.timeoutUrgency !== bucket) {
+      this.last.timeoutUrgency = bucket;
+      this.timeoutWarn.style.setProperty('--urgency', String(bucket));
+      // Pulse period: ~0.9 s at 5 s left, ~0.35 s in the final second.
+      this.timeoutWarn.style.setProperty('--pulse', `${0.9 - bucket * 0.55}s`);
+    }
+    if (!this.last.timeoutBorder) {
+      this.last.timeoutBorder = true;
+      this.timeoutWarn.hidden = false;
+    }
+    this.timeoutWarn.classList.toggle('is-critical', left <= 2);
+  }
+
   show() {
     this.root.hidden = false;
   }
 
   hide() {
     this.root.hidden = true;
+    if (this.timeoutWarn) {
+      this.timeoutWarn.hidden = true;
+      this.timeoutWarn.classList.remove('is-critical');
+    }
+    this.last.timeoutBorder = false;
+    this.last.timeoutUrgency = undefined;
   }
 }

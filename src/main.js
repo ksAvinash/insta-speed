@@ -231,8 +231,9 @@ bus.on('launched', () => {
 });
 
 bus.on('result', (r) => {
-  if (r.outcome === 'crash') audio.impact(1);
-  else if (r.outcome === 'offroad' || r.outcome === 'timeout') audio.impact(0.5);
+  if (r.outcome === 'timeout') audio.timeout();
+  else if (r.outcome === 'crash') audio.impact(1);
+  else if (r.outcome === 'offroad') audio.impact(0.5);
 });
 
 /* ------------------------------------------------------------------- loop */

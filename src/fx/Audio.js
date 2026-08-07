@@ -133,6 +133,34 @@ export class Audio {
     src.stop(now + 0.6);
   }
 
+  /**
+   * Out-of-time buzzer — three falling square tones, not a crash impact.
+   * Reads as "the clock killed you" rather than "you hit something".
+   */
+  timeout() {
+    if (!this.enabled || this.muted) return;
+    const now = this.ctx.currentTime;
+    // Harsh mid → low → lower, each a short square blip with a shared tail.
+    const steps = [
+      { f: 520, t: 0, d: 0.14 },
+      { f: 380, t: 0.16, d: 0.16 },
+      { f: 240, t: 0.34, d: 0.28 },
+    ];
+    for (const { f, t, d } of steps) {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(f, now + t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(80, f * 0.72), now + t + d);
+      gain.gain.setValueAtTime(0.0001, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.16, now + t + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + t + d);
+      osc.connect(gain).connect(this.master);
+      osc.start(now + t);
+      osc.stop(now + t + d + 0.02);
+    }
+  }
+
   /** Rising tone during the countdown, then a launch whoomph. */
   beep(frequency = 660, duration = 0.12) {
     if (!this.enabled || this.muted) return;
