@@ -7,9 +7,9 @@ import { clamp } from '../physics/constants.js';
  */
 /** Seconds left when the screen border starts pulsing. */
 const TIMEOUT_WARN_FROM = 5;
-/** Below this remaining time the clock digit starts growing. */
-const CLOCK_SCALE_FROM = 10;
-/** Font size (px) at ≥10 s left / at 0 s left. */
+/** Clock is hidden until remaining time is at or below this. */
+const CLOCK_VISIBLE_FROM = 9;
+/** Font size (px) at 9 s left / at 0 s left. */
 const CLOCK_SIZE_MIN = 28;
 const CLOCK_SIZE_MAX = 96;
 
@@ -61,14 +61,17 @@ export class Hud {
   update(sim, distanceToTarget) {
     this.#text(this.speed, 'speed', String(Math.round(sim.speedKph)));
 
-    // Countdown only — remaining whole seconds, top centre. Font scales up
-    // from 10 s left through to zero so the last moments own the frame.
+    // Countdown only — top centre, visible from 9 s remaining. Font scales up
+    // toward zero so the last moments own the frame.
     const left = Math.max(0, (this.limit ?? 0) - sim.elapsed);
-    const display = Math.ceil(left - 1e-9); // 0.01 still reads as 1 until gone
-    this.#text(this.time, 'time', String(Math.max(0, display)));
-    this.#clockScale(left);
-    this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM, 'is-tight');
-    this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
+    this.#clockVisible(left);
+    if (left <= CLOCK_VISIBLE_FROM) {
+      const display = Math.ceil(left - 1e-9); // 0.01 still reads as 1 until gone
+      this.#text(this.time, 'time', String(Math.max(0, display)));
+      this.#clockScale(left);
+      this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM, 'is-tight');
+      this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
+    }
     this.#timeoutBorder(left);
 
     const over = distanceToTarget < 0;
@@ -104,14 +107,27 @@ export class Hud {
     this.#text(this.hint, 'hint', text);
   }
 
+  /** @param {number} left */
+  #clockVisible(left) {
+    const show = left <= CLOCK_VISIBLE_FROM;
+    if (this.last.clockVisible === show) return;
+    this.last.clockVisible = show;
+    this.timeBox.hidden = !show;
+    if (!show) {
+      this.timeBox.classList.remove('is-tight', 'is-critical');
+      this.last.tight = false;
+      this.last.critical = false;
+    }
+  }
+
   /**
-   * Grow the remaining-seconds digit from base size at ≥10 s to a large
+   * Grow the remaining-seconds digit from base size at 9 s to a large
    * headline as the clock hits zero.
    * @param {number} left
    */
   #clockScale(left) {
-    const t = left >= CLOCK_SCALE_FROM ? 0 : clamp(1 - left / CLOCK_SCALE_FROM, 0, 1);
-    // Ease in so the last few seconds jump more than 10→7.
+    const t = clamp(1 - left / CLOCK_VISIBLE_FROM, 0, 1);
+    // Ease in so the last few seconds jump more than 9→6.
     const eased = t * t;
     const px = Math.round(CLOCK_SIZE_MIN + (CLOCK_SIZE_MAX - CLOCK_SIZE_MIN) * eased);
     if (this.last.clockSize === px) return;
@@ -155,6 +171,9 @@ export class Hud {
 
   show() {
     this.root.hidden = false;
+    // Stay hidden until the run is inside the final 9 s.
+    this.timeBox.hidden = true;
+    this.last.clockVisible = false;
   }
 
   hide() {
@@ -163,9 +182,11 @@ export class Hud {
       this.timeoutWarn.hidden = true;
       this.timeoutWarn.classList.remove('is-critical');
     }
+    this.timeBox.hidden = true;
     this.last.timeoutBorder = false;
     this.last.timeoutUrgency = undefined;
     this.last.clockSize = undefined;
+    this.last.clockVisible = undefined;
     this.timeBox?.style.removeProperty('--clock-size');
   }
 }

@@ -109,7 +109,8 @@ body[data-state='countdown'] #brake-surface {
   color: var(--muted);
 }
 
-/* Remaining-seconds clock: top centre. --clock-size grows from 10 s → 0. */
+/* Remaining-seconds clock: top centre, only once ≤9 s left.
+   --clock-size grows from 9 s → 0. */
 .readout--time {
   position: absolute;
   top: calc(var(--safe-t) + var(--pad));
@@ -120,6 +121,10 @@ body[data-state='countdown'] #brake-surface {
   gap: 0;
   z-index: 1;
   --clock-size: clamp(22px, 5.5vw, 32px);
+}
+
+.readout--time[hidden] {
+  display: none;
 }
 
 .readout--time span {
