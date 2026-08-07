@@ -169,6 +169,8 @@ async function startRun() {
 
   audio.init();
   audio.resume();
+  // Class-specific engine (car scream / bike snarl / truck diesel) under wind.
+  audio.setVehicle(game.vehicle);
 
   world.buildVehicle(game.vehicle);
   game.launch();
@@ -225,6 +227,7 @@ bus.on('countdown', (n) => {
 
 bus.on('launched', () => {
   startLights.go();
+  audio.launch(game.vehicle);
   // Brief hold on the extinguish / green so the start reads, then clear.
   window.setTimeout(() => startLights.hide(), 420);
   hud.setHint('Hold to brake');
