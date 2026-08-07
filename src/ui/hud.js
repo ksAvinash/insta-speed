@@ -5,13 +5,10 @@ import { clamp } from '../physics/constants.js';
  * cached element references every frame, and each is compared against its last
  * value so the browser is not asked to re-layout text that has not changed.
  */
-/** Seconds left when the screen border starts pulsing. */
+/** Seconds left when the border and clock start pulsing together. */
 const TIMEOUT_WARN_FROM = 5;
 /** Clock is hidden until remaining time is at or below this. */
 const CLOCK_VISIBLE_FROM = 9;
-/** Font size (px) at 9 s left / at 0 s left. */
-const CLOCK_SIZE_MIN = 28;
-const CLOCK_SIZE_MAX = 96;
 
 export class Hud {
   constructor() {
@@ -61,18 +58,17 @@ export class Hud {
   update(sim, distanceToTarget) {
     this.#text(this.speed, 'speed', String(Math.round(sim.speedKph)));
 
-    // Countdown only — top centre, visible from 9 s remaining. Font scales up
-    // toward zero so the last moments own the frame.
+    // Countdown only — top centre from 9 s. Big constant outline type; from 5 s
+    // it pulses in lockstep with the border warn.
     const left = Math.max(0, (this.limit ?? 0) - sim.elapsed);
     this.#clockVisible(left);
     if (left <= CLOCK_VISIBLE_FROM) {
       const display = Math.ceil(left - 1e-9); // 0.01 still reads as 1 until gone
       this.#text(this.time, 'time', String(Math.max(0, display)));
-      this.#clockScale(left);
-      this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM, 'is-tight');
-      this.#flag(this.timeBox, 'critical', left <= 2, 'is-critical');
+      this.#flag(this.timeBox, 'tight', left <= TIMEOUT_WARN_FROM && left > 0, 'is-tight');
+      this.#flag(this.timeBox, 'critical', left <= 2 && left > 0, 'is-critical');
     }
-    this.#timeoutBorder(left);
+    this.#timeoutWarn(left);
 
     const over = distanceToTarget < 0;
     this.#text(
@@ -121,33 +117,21 @@ export class Hud {
   }
 
   /**
-   * Grow the remaining-seconds digit from base size at 9 s to a large
-   * headline as the clock hits zero.
-   * @param {number} left
-   */
-  #clockScale(left) {
-    const t = clamp(1 - left / CLOCK_VISIBLE_FROM, 0, 1);
-    // Ease in so the last few seconds jump more than 9→6.
-    const eased = t * t;
-    const px = Math.round(CLOCK_SIZE_MIN + (CLOCK_SIZE_MAX - CLOCK_SIZE_MIN) * eased);
-    if (this.last.clockSize === px) return;
-    this.last.clockSize = px;
-    this.timeBox.style.setProperty('--clock-size', `${px}px`);
-  }
-
-  /**
-   * Red border pulse from 5 s remaining → 0. Urgency (0–1) drives thickness,
-   * opacity and pulse rate via CSS custom properties.
+   * Border + clock pulse from 5 s remaining → 0. Same --pulse/--urgency on
+   * both so they breathe together.
    * @param {number} left seconds remaining on the run clock
    */
-  #timeoutBorder(left) {
-    if (!this.timeoutWarn) return;
+  #timeoutWarn(left) {
     const active = left > 0 && left <= TIMEOUT_WARN_FROM;
     if (!active) {
       if (this.last.timeoutBorder) {
         this.last.timeoutBorder = false;
-        this.timeoutWarn.hidden = true;
-        this.timeoutWarn.classList.remove('is-critical');
+        if (this.timeoutWarn) {
+          this.timeoutWarn.hidden = true;
+          this.timeoutWarn.classList.remove('is-critical');
+        }
+        this.timeBox.style.removeProperty('--pulse');
+        this.timeBox.style.removeProperty('--urgency');
       }
       return;
     }
@@ -158,15 +142,22 @@ export class Hud {
     const bucket = Math.round(urgency * 20) / 20;
     if (this.last.timeoutUrgency !== bucket) {
       this.last.timeoutUrgency = bucket;
-      this.timeoutWarn.style.setProperty('--urgency', String(bucket));
       // Pulse period: ~0.9 s at 5 s left, ~0.35 s in the final second.
-      this.timeoutWarn.style.setProperty('--pulse', `${0.9 - bucket * 0.55}s`);
+      const pulse = `${0.9 - bucket * 0.55}s`;
+      const urgencyStr = String(bucket);
+      if (this.timeoutWarn) {
+        this.timeoutWarn.style.setProperty('--urgency', urgencyStr);
+        this.timeoutWarn.style.setProperty('--pulse', pulse);
+      }
+      // Same vars on the clock so its outline pulse locks to the border.
+      this.timeBox.style.setProperty('--urgency', urgencyStr);
+      this.timeBox.style.setProperty('--pulse', pulse);
     }
     if (!this.last.timeoutBorder) {
       this.last.timeoutBorder = true;
-      this.timeoutWarn.hidden = false;
+      if (this.timeoutWarn) this.timeoutWarn.hidden = false;
     }
-    this.timeoutWarn.classList.toggle('is-critical', left <= 2);
+    this.timeoutWarn?.classList.toggle('is-critical', left <= 2);
   }
 
   show() {
@@ -183,10 +174,13 @@ export class Hud {
       this.timeoutWarn.classList.remove('is-critical');
     }
     this.timeBox.hidden = true;
+    this.timeBox.classList.remove('is-tight', 'is-critical');
+    this.timeBox.style.removeProperty('--pulse');
+    this.timeBox.style.removeProperty('--urgency');
     this.last.timeoutBorder = false;
     this.last.timeoutUrgency = undefined;
-    this.last.clockSize = undefined;
     this.last.clockVisible = undefined;
-    this.timeBox?.style.removeProperty('--clock-size');
+    this.last.tight = false;
+    this.last.critical = false;
   }
 }

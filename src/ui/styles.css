@@ -110,7 +110,7 @@ body[data-state='countdown'] #brake-surface {
 }
 
 /* Remaining-seconds clock: top centre, only once ≤9 s left.
-   --clock-size grows from 9 s → 0. */
+   Big constant outline type; from 5 s pulses with the border (--pulse). */
 .readout--time {
   position: absolute;
   top: calc(var(--safe-t) + var(--pad));
@@ -120,7 +120,8 @@ body[data-state='countdown'] #brake-surface {
   align-items: center;
   gap: 0;
   z-index: 1;
-  --clock-size: clamp(22px, 5.5vw, 32px);
+  --pulse: 0.9s;
+  --urgency: 0;
 }
 
 .readout--time[hidden] {
@@ -128,30 +129,32 @@ body[data-state='countdown'] #brake-surface {
 }
 
 .readout--time span {
-  font-size: var(--clock-size);
-  font-weight: 800;
+  /* Condensed industrial display face; stroke-only so it sits over the 3D scene. */
+  font-family:
+    'Arial Black', 'Helvetica Neue', Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-size: clamp(64px, 16vw, 96px);
+  font-weight: 900;
+  font-style: italic;
   line-height: 1;
-  letter-spacing: -0.04em;
-  color: var(--text);
-  transition:
-    color 140ms linear,
-    font-size 80ms linear;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.02em;
+  color: transparent;
+  -webkit-text-stroke: 2.5px rgba(255, 255, 255, 0.92);
+  text-stroke: 2.5px rgba(255, 255, 255, 0.92);
+  paint-order: stroke fill;
+  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.55));
+  transition: -webkit-text-stroke-color 140ms linear;
 }
 
+/* 5 s → 0: same pulse animation + period as #timeout-warn. */
 .readout--time.is-tight span {
-  color: var(--warn);
+  -webkit-text-stroke-color: rgba(255, 196, 72, 0.95);
+  text-stroke-color: rgba(255, 196, 72, 0.95);
+  animation: timeout-border-pulse var(--pulse) ease-in-out infinite;
 }
 
 .readout--time.is-critical span {
-  color: var(--danger);
-  animation: clock-pulse 620ms ease-in-out infinite;
-}
-
-@keyframes clock-pulse {
-  50% {
-    opacity: 0.45;
-  }
+  -webkit-text-stroke-color: rgba(255, 80, 70, 0.98);
+  text-stroke-color: rgba(255, 80, 70, 0.98);
 }
 
 .readout--distance {
@@ -1127,14 +1130,15 @@ body[data-state='countdown'] #brake-surface {
   .start-gantry--motogp,
   .start-gantry--traffic,
   #start-lights.is-go .start-caption,
-  .readout--time.is-critical span,
+  .readout--time.is-tight span,
   .result-card,
   .grade,
   .record,
   #timeout-warn {
     animation: none;
   }
-  #timeout-warn {
+  #timeout-warn,
+  .readout--time.is-tight span {
     opacity: 0.85;
   }
   .start-lamp {
