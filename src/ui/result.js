@@ -16,7 +16,7 @@ const DETAIL = {
 export class Result {
   constructor(onRetry, onGarage) {
     this.root = document.getElementById('result');
-    this.grade = document.getElementById('result-grade');
+    this.score = document.getElementById('result-score');
     this.label = document.getElementById('result-label');
     this.detail = document.getElementById('result-detail');
     this.stats = document.getElementById('result-stats');
@@ -30,13 +30,15 @@ export class Result {
 
   /** @param {ReturnType<import('../core/Game.js').Game['result']>} result */
   show(result) {
-    this.grade.textContent = result.grade;
-    this.grade.dataset.grade = result.grade;
+    // The score is the headline — it is what carries over between runs and what
+    // the personal best is kept on. The grade band survives only as the colour
+    // and the word under it.
+    this.score.textContent = int(result.score);
+    this.score.dataset.grade = result.grade;
     this.label.textContent = result.label;
     this.detail.textContent = (DETAIL[result.outcome] ?? DETAIL.stopped)(result);
 
     renderStats(this.stats, {
-      Score: int(result.score),
       // The two halves of the score, so it is obvious what to attack next run.
       Precision: result.clean
         ? `${int(result.precisionPoints)} · ${result.error.toFixed(2)} m off`

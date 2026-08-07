@@ -603,12 +603,20 @@ body[data-state='countdown'] #brake-surface {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
 }
 
+/* The headline number: the score, at the size the letter grade used to be.
+   The grade itself is gone from the card, but it still picks the colour — a
+   score reads as good or bad far faster in green or red than in digits. */
 .grade {
-  font-size: clamp(58px, 17vw, 96px);
+  /* Same 96px headline the grade letter had. The floor is lower and it never
+     wraps, because a maximum score is "100,000" — seven characters where the
+     grade was one, which leaves only 6% of the card spare at full size. */
+  font-size: clamp(44px, 15vw, 96px);
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .grade[data-grade='C'] {
