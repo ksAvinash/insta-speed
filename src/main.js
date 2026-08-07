@@ -104,11 +104,28 @@ async function ensureTilt({ gesture = false } = {}) {
   updateControlAffordances(status === 'granted' ? '' : TILT_MESSAGES[status]);
 }
 
+function syncMuteButton() {
+  const muted = audio.muted;
+  muteToggle.setAttribute('aria-pressed', String(muted));
+  muteToggle.setAttribute('aria-label', muted ? 'Sound off' : 'Sound on');
+  muteToggle.title = muted ? 'Sound off' : 'Sound on';
+  muteToggle.classList.toggle('is-off', muted);
+}
+
+function syncTiltButton() {
+  const on = input.gyroActive;
+  tiltToggle.setAttribute('aria-pressed', String(on));
+  tiltToggle.setAttribute('aria-label', on ? 'Disable tilt steering' : 'Enable tilt steering');
+  tiltToggle.title = on ? 'Tilt on' : 'Tilt off';
+  tiltToggle.classList.toggle('is-on', on);
+}
+
 tiltToggle.addEventListener('click', async () => {
   if (input.gyroActive) {
     input.disableGyro();
     tiltEnabled = false;
     saveSettings({ tilt: false });
+    syncTiltButton();
     updateControlAffordances('Tilt steering off. Use the on-screen arrows.');
     return;
   }
@@ -119,29 +136,28 @@ tiltToggle.addEventListener('click', async () => {
   await ensureTilt({ gesture: true });
   tiltToggle.disabled = false;
   saveSettings({ tilt: input.gyroActive });
+  syncTiltButton();
   if (input.gyroActive) updateControlAffordances(TILT_MESSAGES.granted);
 });
 
 muteToggle.addEventListener('click', () => {
-  const muted = !audio.muted;
-  audio.setMuted(muted);
-  muteToggle.textContent = muted ? 'Sound off' : 'Sound on';
-  muteToggle.setAttribute('aria-pressed', String(muted));
-  saveSettings({ muted });
+  audio.setMuted(!audio.muted);
+  syncMuteButton();
+  saveSettings({ muted: audio.muted });
 });
 
 if (settings.muted) {
   audio.setMuted(true);
-  muteToggle.textContent = 'Sound off';
-  muteToggle.setAttribute('aria-pressed', 'true');
 }
+syncMuteButton();
+syncTiltButton();
 
 input.keyboard.onRestart = () => {
   if (game.state === 'result') startRun();
 };
 
 function updateControlAffordances(message) {
-  tiltToggle.textContent = input.gyroActive ? 'Disable tilt steering' : 'Enable tilt steering';
+  syncTiltButton();
   pads.hidden = !input.needsSteerPads;
 
   const base = input.touch.available

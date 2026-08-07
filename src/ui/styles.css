@@ -1100,21 +1100,236 @@ body[data-state='countdown'] #brake-surface {
   opacity: 0.95;
 }
 
-/* Guaranteed hole for the orbiting vehicle — flex grows, no paint. */
-.garage-stage {
+/*
+  Mid band: sound/gyro centre-left · open stage · speed rail centre-right.
+*/
+.garage-mid {
   flex: 1 1 auto;
   min-height: clamp(160px, 32vh, 420px);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Sound + gyro — vertical stack, centre-left of the stage. */
+.garage-tools {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  align-self: center;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.garage-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100%;
   position: relative;
   pointer-events: none;
   background: transparent;
-  z-index: 1;
 }
 
-.garage-bottom {
+.garage-speed {
+  flex: 0 0 auto;
+  width: clamp(72px, 18vw, 104px);
+  max-height: min(52vh, 420px);
+  align-self: center;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+/* Centre-bottom upgrade bay: credit chip + orb row + hint. */
+.garage-upgrades {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 8px;
+  width: 100%;
   flex-shrink: 0;
+  margin-bottom: 4px;
+}
+
+.upgrade-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(10px, 3vw, 18px);
+}
+
+.upgrade-hint {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+  max-width: 42ch;
+}
+
+/* Icon orb with 3 arc cuts around it (level progress). */
+.upgrade-orb {
+  appearance: none;
+  position: relative;
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  display: grid;
+  place-items: center;
+}
+
+.upgrade-ring {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.upgrade-ring svg {
+  display: block;
+  overflow: visible;
+}
+
+.upgrade-cut {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.upgrade-cut.is-on {
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 4px rgba(77, 255, 146, 0.55));
+}
+
+.upgrade-glyph {
+  position: relative;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.1), transparent 55%),
+    rgba(8, 10, 14, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--accent);
+}
+
+.upgrade-name {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 2px);
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
+.upgrade-meta {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  z-index: 2;
+  min-width: 22px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: #05130a;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(77, 255, 146, 0.35);
+  pointer-events: none;
+}
+
+.upgrade-orb.is-maxed .upgrade-meta {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.upgrade-orb.is-maxed .upgrade-glyph {
+  border-color: rgba(77, 255, 146, 0.45);
+  box-shadow: 0 0 14px rgba(77, 255, 146, 0.2);
+}
+
+.upgrade-orb.is-locked .upgrade-meta {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--muted);
+  box-shadow: none;
+}
+
+.upgrade-orb.is-locked .upgrade-glyph {
+  opacity: 0.55;
+}
+
+.upgrade-orb:disabled {
+  cursor: not-allowed;
+}
+
+.upgrade-orb:not(:disabled):hover .upgrade-glyph,
+.upgrade-orb:not(:disabled):focus-visible .upgrade-glyph {
+  border-color: rgba(77, 255, 146, 0.55);
+  box-shadow: 0 0 16px rgba(77, 255, 146, 0.25);
+}
+
+.upgrade-orb:focus-visible {
+  outline: none;
+}
+
+.upgrade-orb:focus-visible .upgrade-ring svg {
+  filter: drop-shadow(0 0 6px rgba(77, 255, 146, 0.35));
+}
+
+/* Space under orbs for name labels. */
+.upgrade-row {
+  padding-bottom: 16px;
+}
+
+@media (max-width: 380px) {
+  .upgrade-orb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .upgrade-glyph {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+
+  .upgrade-ring svg {
+    width: 42px;
+    height: 42px;
+  }
 }
 
 .picker h2 {
@@ -1125,8 +1340,19 @@ body[data-state='countdown'] #brake-surface {
   color: var(--muted);
 }
 
-/* Speed rail */
-.picker--speed,
+/* Speed rail (vertical dock on the right) */
+.picker--speed {
+  padding: 8px 6px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(16, 20, 28, 0.92), rgba(8, 10, 14, 0.88));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  max-height: min(52vh, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .picker--parts {
   border-color: rgba(255, 255, 255, 0.1);
   background:
@@ -1145,29 +1371,52 @@ body[data-state='countdown'] #brake-surface {
   margin: 0;
 }
 
+.picker-head--speed {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.picker-head--speed h2 {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
 .speed-readout {
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   color: var(--accent);
   text-shadow: 0 0 16px rgba(77, 255, 146, 0.35);
+  line-height: 1.1;
 }
 
+/* Vertical stack of speed rungs */
 .speed-rail {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 4px;
   align-items: stretch;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  max-height: min(42vh, 340px);
+  padding: 1px;
 }
 
 .speed-node {
   appearance: none;
   position: relative;
-  flex: 1 1 auto;
-  min-width: 52px;
-  padding: 10px 6px 8px;
-  border-radius: 10px;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 4px 6px;
+  border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.3);
   color: var(--text);
@@ -1176,20 +1425,21 @@ body[data-state='countdown'] #brake-surface {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   transition: border-color 120ms, background 120ms, box-shadow 120ms;
+  touch-action: manipulation;
 }
 
 .speed-node-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.04);
 }
 
 .speed-node-val {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -1214,62 +1464,32 @@ body[data-state='countdown'] #brake-surface {
   cursor: not-allowed;
 }
 
+@media (max-width: 380px) {
+  .garage-speed {
+    width: clamp(64px, 20vw, 88px);
+  }
+
+  .speed-node {
+    padding: 6px 3px 5px;
+  }
+
+  .speed-node-val {
+    font-size: 10px;
+  }
+}
+
 .credits--wallet {
   float: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   background: rgba(77, 255, 146, 0.1);
   border: 1px solid rgba(77, 255, 146, 0.3);
-}
-
-.part--bay {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 8px 10px;
-  border-radius: 12px;
-  border-color: rgba(255, 255, 255, 0.08);
-}
-
-.part-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  font-size: 14px;
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   color: var(--accent);
-}
-
-.part-fitted {
-  display: block;
-  grid-column: auto;
-  grid-row: auto;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.part--bay .part-head {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-}
-
-.part--bay .btn--buy {
-  grid-row: auto;
-  align-self: center;
-  min-width: 52px;
-  border-radius: 8px;
-}
-
-.part--bay.is-maxed {
-  border-color: rgba(77, 255, 146, 0.25);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .btn--launch {
@@ -1436,9 +1656,100 @@ body[data-state='countdown'] #brake-surface {
 }
 
 .garage-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 12px;
   margin-top: 8px;
+}
+
+.garage-foot .actions {
+  justify-content: center;
+}
+
+.garage-foot .btn--launch {
+  width: 100%;
+  max-width: 320px;
+}
+
+.tool-btn {
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(8, 10, 14, 0.88);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  transition: border-color 120ms, background 120ms, color 120ms, box-shadow 120ms;
+}
+
+.tool-btn:hover,
+.tool-btn:focus-visible {
+  outline: none;
+  border-color: rgba(77, 255, 146, 0.45);
+  color: var(--accent);
+}
+
+.tool-btn[aria-pressed='true'],
+.tool-btn.is-on {
+  border-color: rgba(77, 255, 146, 0.5);
+  background: rgba(77, 255, 146, 0.12);
+  color: var(--accent);
+  box-shadow: 0 0 14px rgba(77, 255, 146, 0.18);
+}
+
+/* Muted sound reads as inactive. */
+.tool-btn.is-off {
+  color: var(--muted);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(8, 10, 14, 0.7);
+}
+
+.tool-btn.is-off .tool-icon--sound {
+  position: relative;
+}
+
+.tool-btn.is-off .tool-icon--sound::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 50%;
+  height: 2px;
+  background: var(--danger);
+  transform: rotate(-28deg);
+  border-radius: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.tool-icon {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+
+.tool-btn[hidden] {
+  display: none;
+}
+
+@media (max-width: 380px) {
+  .tool-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .garage-tools {
+    gap: 8px;
+  }
 }
 
 .best {
@@ -1643,87 +1954,15 @@ body[data-state='countdown'] #brake-surface {
   font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------- upgrades ------------------------------- */
+/* ------------------------------- upgrades (legacy buy btn if reused) ---- */
 
 .credits {
-  float: right;
   color: var(--accent);
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
 }
 
-.parts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 8px;
-}
-
-/* `minmax(0, 1fr)` rather than `1fr`: an auto-placed grid track floors at
-   min-content, so a long part label ("Lip and splitter → Adjustable wing")
-   pushes the text track wider than the card and straight under the button. */
-.part {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  /* The garage gradient is deliberately clear through the middle so the
-     showcase vehicle shows through, and this panel lands right on top of it.
-     Unlike the chips, these cards carry small muted text, so they bring their
-     own backdrop rather than relying on the one behind them. */
-  background: rgba(10, 13, 18, 0.78);
-  backdrop-filter: blur(2px);
-  padding: 10px 12px;
-}
-
-.part-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.part-name {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.part-pips {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.pip {
-  width: 12px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.16);
-}
-
-.pip--on {
-  background: var(--accent);
-}
-
-.part-fitted {
-  grid-column: 1;
-  grid-row: 2;
-  min-width: 0;
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: var(--muted);
-}
-
-.part-fitted b {
-  color: var(--text);
-  font-weight: 600;
-}
-
-/* Spans both rows so the button is centred against the name and the label. */
 .btn--buy {
-  grid-column: 2;
-  grid-row: 1 / span 2;
   padding: 8px 12px;
   font-size: 12px;
   min-width: 76px;

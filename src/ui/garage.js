@@ -11,6 +11,30 @@ function hex(n) {
   return `#${(n >>> 0).toString(16).padStart(6, '0')}`;
 }
 
+/**
+ * SVG arc path for one of N equal "circle-cuts" around a 48×48 ring.
+ * Gaps between segments so they read as discrete progress slots.
+ * @param {number} index 0-based segment
+ * @param {number} total usually MAX_LEVEL (3)
+ */
+function upgradeCutPath(index, total) {
+  const cx = 24;
+  const cy = 24;
+  const r = 20;
+  const gapDeg = 14;
+  const sweep = 360 / total - gapDeg;
+  // Start at top (−90°), then walk clockwise by index.
+  const startDeg = -90 + index * (360 / total) + gapDeg / 2;
+  const endDeg = startDeg + sweep;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(toRad(startDeg));
+  const y1 = cy + r * Math.sin(toRad(startDeg));
+  const x2 = cx + r * Math.cos(toRad(endDeg));
+  const y2 = cy + r * Math.sin(toRad(endDeg));
+  const large = sweep > 180 ? 1 : 0;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+}
+
 /** Primary paint from a vehicle body recipe (first non-glass, non-emissive part). */
 function vehiclePaint(spec) {
   const parts = spec.body?.parts ?? [];
@@ -107,6 +131,7 @@ export class Garage {
     this.bestLine = document.getElementById('best-line');
     this.partsList = document.getElementById('parts-list');
     this.creditBalance = document.getElementById('credit-balance');
+    this.upgradeHint = document.getElementById('upgrade-hint');
 
     this.#buildVehicleMenu();
     this.#buildSceneMenu();
@@ -383,7 +408,13 @@ export class Garage {
     this.creditBalance.textContent = `${int(credits)} cr`;
     this.partsList.innerHTML = '';
 
-    const icons = { tyres: '◎', brakes: '▣', aero: '▲', chassis: '⬡' };
+    // Glyph + short label for each bay part.
+    const icons = {
+      tyres: { glyph: '◎', label: 'Tyres' },
+      brakes: { glyph: '▣', label: 'Brakes' },
+      aero: { glyph: '▲', label: 'Aero' },
+      chassis: { glyph: '⬡', label: 'Chassis' },
+    };
 
     for (const part of PARTS) {
       const level = levels[part.id] ?? 0;
@@ -392,37 +423,61 @@ export class Garage {
       const affordable = !maxed && credits >= cost;
       const nextLabel = maxed ? 'Maxed' : stepFor(spec, part.id, level + 1).label;
       const fitted = stepFor(spec, part.id, level).label;
+      const meta = icons[part.id] ?? { glyph: '●', label: part.name };
 
-      const row = document.createElement('div');
-      row.className = `part part--bay${maxed ? ' is-maxed' : ''}${!affordable && !maxed ? ' is-locked' : ''}`;
+      // Whole orb is the buy control — tap to spend credits on the next cut.
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `upgrade-orb${maxed ? ' is-maxed' : ''}${!affordable && !maxed ? ' is-locked' : ''}`;
+      btn.dataset.part = part.id;
+      btn.disabled = maxed || !affordable;
+      btn.setAttribute(
+        'aria-label',
+        maxed
+          ? `${part.name}, maxed, ${fitted}`
+          : `${part.name}, level ${level} of ${MAX_LEVEL}, next ${nextLabel}, ${int(cost)} credits`,
+      );
+      if (!maxed && !affordable) btn.title = `${int(cost - credits)} cr short`;
+      else btn.title = maxed ? fitted : `${nextLabel} · ${int(cost)} cr`;
 
-      const pips = Array.from(
-        { length: MAX_LEVEL },
-        (_, i) => `<i class="pip${i < level ? ' pip--on' : ''}"></i>`,
-      ).join('');
+      // Three arc "circle-cuts" around the icon — filled = levels owned.
+      const cuts = Array.from({ length: MAX_LEVEL }, (_, i) => {
+        const on = i < level ? ' is-on' : '';
+        return `<path class="upgrade-cut${on}" d="${upgradeCutPath(i, MAX_LEVEL)}" />`;
+      }).join('');
 
-      row.innerHTML = `
-        <span class="part-icon" aria-hidden="true">${icons[part.id] ?? '●'}</span>
-        <div class="part-head">
-          <span class="part-name">${part.name}</span>
-          <span class="part-pips" aria-label="Level ${level} of ${MAX_LEVEL}">${pips}</span>
-          <span class="part-fitted">${maxed ? fitted : nextLabel}</span>
-        </div>
+      btn.innerHTML = `
+        <span class="upgrade-ring" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="48" height="48" focusable="false">
+            ${cuts}
+          </svg>
+        </span>
+        <span class="upgrade-glyph" aria-hidden="true">${meta.glyph}</span>
+        <span class="upgrade-name">${meta.label}</span>
+        <span class="upgrade-meta">${maxed ? 'MAX' : `${int(cost)}`}</span>
       `;
 
-      const buy = document.createElement('button');
-      buy.type = 'button';
-      buy.className = 'btn btn--buy';
-      buy.disabled = maxed || !affordable;
-      buy.textContent = maxed ? 'MAX' : `${int(cost)}`;
-      if (!maxed && !affordable) buy.title = `${int(cost - credits)} cr short`;
-      buy.addEventListener('click', () => {
+      btn.addEventListener('click', () => {
         if (!game.buyUpgrade(part.id).ok) return;
         this.refresh();
         this.onChange?.();
       });
-      row.append(buy);
-      this.partsList.append(row);
+
+      // Hover / focus shows the next step under the row.
+      const showHint = () => {
+        if (!this.upgradeHint) return;
+        this.upgradeHint.textContent = maxed
+          ? `${part.name} · ${fitted}`
+          : `${part.name} → ${nextLabel}${affordable ? '' : ' · need more cr'}`;
+      };
+      btn.addEventListener('pointerenter', showHint);
+      btn.addEventListener('focus', showHint);
+
+      this.partsList.append(btn);
+    }
+
+    if (this.upgradeHint && !this.upgradeHint.textContent) {
+      this.upgradeHint.textContent = 'Tap an upgrade to fit the next level';
     }
   }
 
