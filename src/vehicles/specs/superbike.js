@@ -57,12 +57,41 @@ export default {
   model: null,
   body: {
     parts: [
-      { shape: 'box', size: [0.34, 0.42, 1.35], pos: [0, 0.66, 0.05], color: 0xf0a01e },
-      { shape: 'wedge', size: [0.36, 0.36, 0.8], pos: [0, 0.95, 0.42], color: 0x1c1c20 },
-      { shape: 'box', size: [0.3, 0.16, 0.5], pos: [0, 0.92, -0.45], color: 0x1c1c20 },
-      { shape: 'box', size: [0.62, 0.06, 0.1], pos: [0, 1.02, 0.52], color: 0x2a2a30 },
-      { shape: 'box', size: [0.16, 0.1, 0.3], pos: [0, 1.06, 0.66], color: 0xf2f2f2, emissive: 0xfff0c0 },
+      // Fuel tank / main body
+      { shape: 'box', size: [0.36, 0.4, 1.15], pos: [0, 0.68, 0.02], color: 0xf0a01e },
+      // Belly pan
+      { shape: 'box', size: [0.32, 0.14, 1.0], pos: [0, 0.42, 0.05], color: 0x1a1a1e, role: 'matte' },
+      // Upper fairing
+      { shape: 'wedge', size: [0.38, 0.34, 0.75], pos: [0, 0.98, 0.48], color: 0x1c1c20, role: 'trim' },
+      // Windscreen
+      { shape: 'box', size: [0.28, 0.22, 0.06], pos: [0, 1.18, 0.72], color: 0x7aa0c0, glass: true, opacity: 0.4 },
+      // Tail section
+      { shape: 'box', size: [0.3, 0.18, 0.55], pos: [0, 0.9, -0.55], color: 0x1c1c20, role: 'trim' },
+      // Seat
+      { shape: 'box', size: [0.28, 0.1, 0.45], pos: [0, 0.82, -0.2], color: 0x2a2a30, role: 'matte' },
+      // Handlebar
+      { shape: 'box', size: [0.62, 0.05, 0.08], pos: [0, 1.05, 0.52], color: 0x2a2a30, role: 'trim' },
+      // Fork tubes
+      { shape: 'cylinder', size: [0.03, 0.03, 0.55], pos: [0.08, 0.72, 0.62], color: 0xc0c4cc, role: 'trim', rot: [0.35, 0, 0] },
+      { shape: 'cylinder', size: [0.03, 0.03, 0.55], pos: [-0.08, 0.72, 0.62], color: 0xc0c4cc, role: 'trim', rot: [0.35, 0, 0] },
+      // Exhaust can
+      { shape: 'cylinder', size: [0.06, 0.05, 0.45], pos: [0.18, 0.42, -0.55], color: 0x8a9098, role: 'trim', rot: [0.15, 0, 0.4] },
+      // Headlight
+      { shape: 'box', size: [0.16, 0.12, 0.14], pos: [0, 0.95, 0.78], color: 0xf2f2f2, emissive: 0xfff0c0 },
+      // Side number plates
+      { shape: 'box', size: [0.04, 0.16, 0.22], pos: [0.2, 0.7, 0.15], color: 0xffffff, role: 'matte' },
+      { shape: 'box', size: [0.04, 0.16, 0.22], pos: [-0.2, 0.7, 0.15], color: 0xffffff, role: 'matte' },
     ],
-    wheels: { radius: 0.32, width: 0.17, track: 0, front: 0.71, rear: -0.71, color: 0x141418 },
+    wheels: {
+      radius: 0.32,
+      width: 0.17,
+      track: 0,
+      front: 0.71,
+      rear: -0.71,
+      color: 0x141418,
+      rimColor: 0xc4c8d0,
+    },
+    // Single centre tail light — a bike does not have a pair of wing lights.
+    brakeLights: { y: 0.88, z: -0.85, track: 0, dual: false, size: [0.18, 0.1, 0.08] },
   },
 };

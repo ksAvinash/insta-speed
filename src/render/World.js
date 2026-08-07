@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { Environment } from './Environment.js';
 import { RoadBuilder } from './RoadBuilder.js';
 import { Props } from './Props.js';
@@ -26,16 +27,52 @@ export class World {
     this.chase = new Chase(renderer);
     this.smoke = new TireSmoke(scene, renderer.quality.smoke);
     this.skid = new SkidMarks(scene);
-    this.speedLines = new SpeedLines(scene);
+    this.speedLines = new SpeedLines(scene, renderer.quality.streaks ?? 70);
+    this.#buildContactShadow(scene);
 
     renderer.onTierChange = (_name, quality) => {
-      // Rebuild only what the tier actually changes.
+      // Rebuild only what the tier actually changes — including the smoke and
+      // streak pools, so a demote drops GPU work as well as resolution.
+      this.smoke.setBudget(quality.smoke);
+      this.speedLines.setBudget(quality.streaks ?? 70);
+      this.contactShadow.visible = Boolean(quality.contactShadow);
       if (this.currentScene && this.currentCourse) {
         this.props.build(this.currentScene, this.currentCourse, quality);
         this.environment.build(this.currentScene, this.currentCourse, quality);
       }
       if (this.currentSpec) this.vehicle.build(this.currentSpec, quality);
     };
+
+    this.contactShadow.visible = Boolean(renderer.quality.contactShadow);
+  }
+
+  /** Soft ground blob under the car — high tier only, one transparent plane. */
+  #buildContactShadow(scene) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+    g.addColorStop(0, 'rgba(0,0,0,0.45)');
+    g.addColorStop(0.55, 'rgba(0,0,0,0.18)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+    const tex = new THREE.CanvasTexture(c);
+
+    this.contactShadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.2, 5.2),
+      new THREE.MeshBasicMaterial({
+        map: tex,
+        transparent: true,
+        depthWrite: false,
+        opacity: 0.7,
+        toneMapped: false,
+      }),
+    );
+    this.contactShadow.rotation.x = -Math.PI / 2;
+    this.contactShadow.position.y = 0.02;
+    this.contactShadow.renderOrder = 0;
+    scene.add(this.contactShadow);
   }
 
   /**
@@ -62,6 +99,15 @@ export class World {
     this.vehicle.build(spec, this.renderer.quality);
     this.chase.configure(spec);
     this.skid.setVehicle(spec);
+
+    // Scale the contact blob to the vehicle footprint.
+    const track = spec.body?.wheels?.track ?? 1.6;
+    const wheelbase = spec.wheelbase ?? 2.5;
+    this.contactShadow.scale.set(
+      Math.max(0.7, track * 0.85 + 0.4),
+      Math.max(0.9, wheelbase * 0.55 + 0.6),
+      1,
+    );
   }
 
   /**
@@ -81,6 +127,15 @@ export class World {
     this.speedLines.update(sim, this.renderer.camera, dt, live);
     this.road.update(dt);
     this.environment.follow(sim.x);
+    this.#followContactShadow();
+  }
+
+  #followContactShadow() {
+    if (!this.contactShadow.visible) return;
+    const root = this.vehicle.root;
+    this.contactShadow.position.x = root.position.x;
+    this.contactShadow.position.z = root.position.z;
+    this.contactShadow.rotation.z = -root.rotation.y;
   }
 
   /** Slow orbit around the selected vehicle while in the garage. */
@@ -89,5 +144,6 @@ export class World {
     this.vehicle.root.rotation.y = 0;
     this.vehicle.chassis.rotation.set(0, 0, 0);
     this.chase.showcase(spec, time);
+    this.#followContactShadow();
   }
 }

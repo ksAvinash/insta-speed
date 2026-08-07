@@ -36,6 +36,10 @@ export class Result {
     // and the word under it.
     this.score.textContent = int(result.score);
     this.score.dataset.grade = result.grade;
+    // Re-trigger the score pop when the same card is shown on a retry.
+    this.score.style.animation = 'none';
+    void this.score.offsetWidth;
+    this.score.style.animation = '';
     this.label.textContent = result.label;
     this.detail.textContent = (DETAIL[result.outcome] ?? DETAIL.stopped)(result);
 

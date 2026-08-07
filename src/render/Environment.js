@@ -9,13 +9,22 @@ const SKY_VERT = /* glsl */ `
   }
 `;
 
+// Two-stop gradient plus a soft horizon band so the sky reads as atmosphere
+// rather than a flat wash — still one draw, no cubemap.
 const SKY_FRAG = /* glsl */ `
   uniform vec3 top;
   uniform vec3 bottom;
+  uniform vec3 horizon;
   varying vec3 vWorld;
   void main() {
     float h = normalize(vWorld).y;
-    gl_FragColor = vec4(mix(bottom, top, smoothstep(-0.15, 0.6, h)), 1.0);
+    vec3 col = mix(bottom, top, smoothstep(-0.12, 0.55, h));
+    // Thin bright band at the horizon — sells distance without a second mesh.
+    float band = exp(-h * h * 48.0);
+    col = mix(col, horizon, band * 0.42);
+    // Slight darkening at the zenith so the top does not blow out under ACES.
+    col *= 1.0 - smoothstep(0.35, 1.0, h) * 0.08;
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -37,12 +46,19 @@ export class Environment {
   build(def, course, quality) {
     this.clear();
 
+    const top = new THREE.Color(def.sky.top);
+    const bottom = new THREE.Color(def.sky.bottom);
+    // Horizon leans toward the brighter of the two stops so desert sunsets and
+    // cold twilight both get a readable band without per-scene authoring.
+    const horizon = bottom.clone().lerp(top, 0.35).multiplyScalar(1.12);
+
     const sky = new THREE.Mesh(
       new THREE.SphereGeometry(3000, 24, 16),
       new THREE.ShaderMaterial({
         uniforms: {
-          top: { value: new THREE.Color(def.sky.top) },
-          bottom: { value: new THREE.Color(def.sky.bottom) },
+          top: { value: top },
+          bottom: { value: bottom },
+          horizon: { value: horizon },
         },
         vertexShader: SKY_VERT,
         fragmentShader: SKY_FRAG,
@@ -65,7 +81,7 @@ export class Environment {
     ground.receiveShadow = quality.shadows;
     this.#add(ground);
 
-    const hemi = new THREE.HemisphereLight(def.sky.top, def.ground.color, 1.1);
+    const hemi = new THREE.HemisphereLight(def.sky.top, def.ground.color, 1.15);
     this.#add(hemi);
 
     const sun = new THREE.DirectionalLight(def.sun.color, def.sun.intensity);
@@ -88,7 +104,7 @@ export class Environment {
     this.sun = sun;
     this.#add(sun);
 
-    this.#add(new THREE.AmbientLight(def.fog.color, def.tunnel ? 0.7 : 0.35));
+    this.#add(new THREE.AmbientLight(def.fog.color, def.tunnel ? 0.75 : 0.38));
   }
 
   /** Keeps the shadow frustum centred on the car. */

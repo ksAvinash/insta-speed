@@ -73,7 +73,8 @@ export class SkidMarks {
 
   /** @param {import('../vehicles/registry.js').VehicleSpec} spec */
   setVehicle(spec) {
-    this.halfWidth = Math.max(0.08, (spec.body?.wheels?.width ?? 0.3) * 0.45);
+    // Slightly under true tyre width so a dual track still reads as two marks.
+    this.halfWidth = Math.max(0.07, (spec.body?.wheels?.width ?? 0.3) * 0.42);
   }
 
   reset() {
@@ -85,7 +86,13 @@ export class SkidMarks {
     this.geometry.setDrawRange(0, 0);
   }
 
-  #lay(from, to, alpha) {
+  /**
+   * @param {{ x: number, z: number }} from
+   * @param {{ x: number, z: number }} to
+   * @param {number} alpha
+   * @param {number} [widthScale]
+   */
+  #lay(from, to, alpha, widthScale = 1) {
     const dx = to.x - from.x;
     const dz = to.z - from.z;
     const len = Math.hypot(dx, dz);
@@ -93,8 +100,9 @@ export class SkidMarks {
 
     // Perpendicular to the direction of travel, so the mark is the width of the
     // tyre rather than the width of the step.
-    const nx = (-dz / len) * this.halfWidth;
-    const nz = (dx / len) * this.halfWidth;
+    const half = this.halfWidth * widthScale;
+    const nx = (-dz / len) * half;
+    const nz = (dx / len) * half;
 
     const i = this.cursor;
     this.cursor = (this.cursor + 1) % this.max;
@@ -156,7 +164,12 @@ export class SkidMarks {
 
       if (Math.hypot(point.x - last.x, point.z - last.z) < SEGMENT_METRES) continue;
 
-      this.#lay(last, point, 0.25 + slipping * 0.55);
+      // Soft entry, hard lock-up: opacity curves so a light slide is a whisper
+      // and a full lock is ink on the road.
+      const alpha = 0.18 + Math.pow(slipping, 1.35) * 0.72;
+      // Widen a touch as slip climbs — locked rubber smears.
+      const widthScale = 1 + slipping * 0.35;
+      this.#lay(last, point, alpha, widthScale);
       last.x = point.x;
       last.z = point.z;
       dirty = true;

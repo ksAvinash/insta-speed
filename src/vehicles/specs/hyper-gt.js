@@ -37,14 +37,45 @@ export default {
   model: null,
   body: {
     parts: [
+      // Main tub
       { shape: 'box', size: [1.95, 0.42, 4.5], pos: [0, 0.44, 0], color: 0xd81f36 },
-      { shape: 'wedge', size: [1.62, 0.46, 2.0], pos: [0, 0.83, -0.15], color: 0x2b2f36 },
-      { shape: 'box', size: [2.02, 0.1, 0.7], pos: [0, 0.2, 2.05], color: 0x14161a },
-      { shape: 'box', size: [1.72, 0.07, 0.42], pos: [0, 1.06, -2.0], color: 0x14161a },
-      { shape: 'box', size: [0.08, 0.32, 0.3], pos: [0.72, 0.9, -1.98], color: 0x14161a },
-      { shape: 'box', size: [0.08, 0.32, 0.3], pos: [-0.72, 0.9, -1.98], color: 0x14161a },
-      { shape: 'box', size: [1.3, 0.06, 0.5], pos: [0, 0.66, 2.12], color: 0xf2f2f2, emissive: 0xfff0c0 },
+      // Side sills
+      { shape: 'box', size: [2.08, 0.14, 3.6], pos: [0, 0.28, 0.1], color: 0xb01828, role: 'matte' },
+      // Cabin / canopy glass
+      { shape: 'wedge', size: [1.55, 0.42, 1.85], pos: [0, 0.86, -0.05], color: 0x6a8aaa, glass: true, opacity: 0.42 },
+      // Cabin frame
+      { shape: 'wedge', size: [1.62, 0.12, 2.0], pos: [0, 1.05, -0.12], color: 0x1a1e24, role: 'trim' },
+      // Nose splitter
+      { shape: 'box', size: [2.02, 0.08, 0.72], pos: [0, 0.18, 2.08], color: 0x12141a, role: 'trim' },
+      // Front bumper lip
+      { shape: 'box', size: [1.85, 0.16, 0.35], pos: [0, 0.32, 2.15], color: 0xc41c30 },
+      // Rear diffuser
+      { shape: 'box', size: [1.78, 0.12, 0.55], pos: [0, 0.2, -2.15], color: 0x12141a, role: 'trim' },
+      // Rear wing blade
+      { shape: 'box', size: [1.72, 0.07, 0.42], pos: [0, 1.06, -2.0], color: 0x14161a, role: 'trim' },
+      // Wing endplates
+      { shape: 'box', size: [0.08, 0.34, 0.32], pos: [0.78, 0.92, -1.98], color: 0x14161a, role: 'trim' },
+      { shape: 'box', size: [0.08, 0.34, 0.32], pos: [-0.78, 0.92, -1.98], color: 0x14161a, role: 'trim' },
+      // Mirrors
+      { shape: 'box', size: [0.22, 0.08, 0.14], pos: [0.92, 0.78, 0.55], color: 0x1a1e24, role: 'trim' },
+      { shape: 'box', size: [0.22, 0.08, 0.14], pos: [-0.92, 0.78, 0.55], color: 0x1a1e24, role: 'trim' },
+      // Roof stripe
+      { shape: 'box', size: [0.22, 0.04, 1.6], pos: [0, 1.08, -0.2], color: 0xf0f0f4, role: 'matte' },
+      // Headlight bar
+      { shape: 'box', size: [1.35, 0.07, 0.22], pos: [0, 0.58, 2.18], color: 0xf2f2f2, emissive: 0xfff0c0 },
+      // Side intakes
+      { shape: 'box', size: [0.12, 0.22, 0.55], pos: [0.98, 0.52, 0.35], color: 0x0e1014, role: 'matte' },
+      { shape: 'box', size: [0.12, 0.22, 0.55], pos: [-0.98, 0.52, 0.35], color: 0x0e1014, role: 'matte' },
     ],
-    wheels: { radius: 0.35, width: 0.33, track: 1.68, front: 1.42, rear: -1.42, color: 0x16181c },
+    wheels: {
+      radius: 0.35,
+      width: 0.33,
+      track: 1.68,
+      front: 1.42,
+      rear: -1.42,
+      color: 0x16181c,
+      rimColor: 0xb0b6c0,
+    },
+    brakeLights: { y: 0.62, z: -2.28, track: 0.72, size: [0.32, 0.1, 0.08] },
   },
 };

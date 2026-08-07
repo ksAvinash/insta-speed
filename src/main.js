@@ -258,15 +258,58 @@ const loop = new Loop({
       // it carries on shaking the scene behind the result card.
       world.update(game.sim, frameDt, game.state !== 'result');
       if (import.meta.env.DEV) {
-        window.__debug = { camera: renderer.camera, sim: game.sim, chase: world.chase, world, game };
+        window.__debug = {
+          camera: renderer.camera,
+          sim: game.sim,
+          chase: world.chase,
+          world,
+          game,
+          tier: renderer.tierName,
+          info: renderer.info,
+        };
       }
       audio.update(game.sim, frameDt);
       if (game.state === 'running') hud.update(game.sim, game.distanceToTarget);
     }
 
+    if (import.meta.env.DEV) perfOverlay?.tick(frameDt);
     renderer.render();
   },
 });
+
+/* ---------------------------------------------------------- dev overlay */
+
+/** Tiny FPS / tier / draw-call strip. `?tier=low|medium|high` forces a quality tier. */
+const perfOverlay =
+  import.meta.env.DEV && new URLSearchParams(location.search).has('perf')
+    ? (() => {
+        const el = document.createElement('div');
+        el.id = 'perf-overlay';
+        el.style.cssText =
+          'position:fixed;left:8px;bottom:8px;z-index:50;padding:6px 8px;font:11px/1.35 ui-monospace,monospace;' +
+          'color:#c8d0da;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.12);border-radius:6px;' +
+          'pointer-events:none;white-space:pre';
+        document.body.append(el);
+        let frames = 0;
+        let accum = 0;
+        let fps = 0;
+        return {
+          tick(dt) {
+            frames++;
+            accum += dt;
+            if (accum >= 0.5) {
+              fps = frames / accum;
+              frames = 0;
+              accum = 0;
+              const info = renderer.info.render;
+              el.textContent =
+                `${fps.toFixed(0)} fps  tier=${renderer.tierName}\n` +
+                `calls ${info.calls}  tris ${info.triangles}  smoke ${world.smoke.count}`;
+            }
+          },
+        };
+      })()
+    : null;
 
 /* ------------------------------------------------------------------ start */
 

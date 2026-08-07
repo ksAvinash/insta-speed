@@ -35,27 +35,119 @@ export function makeRoadTexture(def, roadWidth, runway) {
   const { c, ctx } = canvas(256, 512);
   const base = hex(def.road.color);
   const alt = hex(def.road.secondary ?? def.road.color);
+  const surface = def.surface ?? 'tarmac';
 
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, 256, 512);
 
-  // Subtle longitudinal streaking so the surface has grain to read speed from.
-  ctx.fillStyle = alt;
-  ctx.globalAlpha = 0.35;
-  for (let i = 0; i < 60; i++) {
-    const x = Math.random() * 256;
-    const y = Math.random() * 512;
-    ctx.fillRect(x, y, 1 + Math.random() * 2, 12 + Math.random() * 60);
+  // Surface-specific grain. Same draw cost as the old random streaks — just
+  // more intentional so each venue reads at a glance.
+  if (surface === 'salt') {
+    // Crushed salt: pale flecks and soft cracks.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.22;
+    for (let i = 0; i < 90; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 1 + Math.random() * 3, 8 + Math.random() * 40);
+    }
+    ctx.strokeStyle = alt;
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 18; i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random() * 256, Math.random() * 512);
+      ctx.lineTo(Math.random() * 256, Math.random() * 512);
+      ctx.stroke();
+    }
+  } else if (surface === 'ice_tarmac' || surface === 'ice' || surface === 'snow') {
+    // Dark tarmac under translucent ice sheen + sparse white flecks.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.3;
+    for (let i = 0; i < 50; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 1 + Math.random() * 2, 20 + Math.random() * 80);
+    }
+    ctx.fillStyle = '#e8f4ff';
+    ctx.globalAlpha = 0.12;
+    for (let i = 0; i < 40; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * 256, Math.random() * 512, 1 + Math.random() * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (surface === 'carbon_mesh') {
+    // Indigo grid weave for the maglev deck.
+    ctx.strokeStyle = alt;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 256; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+    for (let y = 0; y < 512; y += 24) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(256, y);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = alt;
+    for (let i = 0; i < 30; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 2, 10 + Math.random() * 30);
+    }
+  } else if (surface === 'polished_concrete' || surface === 'concrete') {
+    // Clean industrial slab with fine longitudinal polish lines.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.28;
+    for (let i = 0; i < 40; i++) {
+      const x = (i / 40) * 256;
+      ctx.fillRect(x, 0, 1, 512);
+    }
+    ctx.globalAlpha = 0.15;
+    for (let i = 0; i < 20; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 8 + Math.random() * 20, 2);
+    }
+  } else if (surface === 'dry_cracked_asphalt') {
+    // Coarse aggregate + occasional crack.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.4;
+    for (let i = 0; i < 100; i++) {
+      ctx.fillRect(Math.random() * 256, Math.random() * 512, 1 + Math.random() * 2, 6 + Math.random() * 50);
+    }
+    ctx.strokeStyle = '#1c1917';
+    ctx.globalAlpha = 0.25;
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 12; i++) {
+      ctx.beginPath();
+      let x = Math.random() * 256;
+      let y = Math.random() * 512;
+      ctx.moveTo(x, y);
+      for (let s = 0; s < 4; s++) {
+        x += (Math.random() - 0.5) * 40;
+        y += 10 + Math.random() * 30;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  } else {
+    // Default tarmac / wet: longitudinal streaking for speed grain.
+    ctx.fillStyle = alt;
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 60; i++) {
+      const x = Math.random() * 256;
+      const y = Math.random() * 512;
+      ctx.fillRect(x, y, 1 + Math.random() * 2, 12 + Math.random() * 60);
+    }
   }
   ctx.globalAlpha = 1;
 
-  // Solid edge lines.
-  ctx.fillStyle = '#f2f2f0';
+  // Solid edge lines — high contrast so leaving the road is never ambiguous.
+  const edge = surface === 'salt' || surface === 'ice_tarmac' || surface === 'snow' ? '#1a1f24' : '#f2f2f0';
+  ctx.fillStyle = edge;
   ctx.fillRect(8, 0, 7, 512);
   ctx.fillRect(241, 0, 7, 512);
 
   // Dashed centre line: two dashes per tile.
-  ctx.fillStyle = '#f2f2f0';
+  ctx.fillStyle = edge;
   for (let i = 0; i < 2; i++) ctx.fillRect(124, i * 256 + 40, 8, 176);
 
   return finish(c, 1, runway / TILE_METRES);
@@ -64,13 +156,60 @@ export function makeRoadTexture(def, roadWidth, runway) {
 /** @param {import('../scenes/registry.js').SceneDef} def */
 export function makeGroundTexture(def) {
   const { c, ctx } = canvas(128, 128);
-  ctx.fillStyle = hex(def.ground.color);
+  const base = hex(def.ground.color);
+  const accent = hex(def.ground.accent ?? def.ground.color);
+  const surface = def.surface ?? 'tarmac';
+
+  ctx.fillStyle = base;
   ctx.fillRect(0, 0, 128, 128);
-  ctx.fillStyle = hex(def.ground.accent ?? def.ground.color);
-  ctx.globalAlpha = 0.5;
-  for (let i = 0; i < 220; i++) {
-    ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+
+  if (surface === 'salt') {
+    // Blinding salt crust with soft mottling.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.45;
+    for (let i = 0; i < 280; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 3, 1 + Math.random() * 3);
+    }
+  } else if (surface === 'ice_tarmac' || surface === 'snow' || surface === 'ice') {
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.4;
+    for (let i = 0; i < 200; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * 128, Math.random() * 128, 0.8 + Math.random() * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 40; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 6 + Math.random() * 14, 2);
+    }
+  } else if (surface === 'dry_cracked_asphalt') {
+    // Mojave sand / dirt.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 260; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    ctx.globalAlpha = 0.2;
+    for (let i = 0; i < 30; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 8 + Math.random() * 16, 1);
+    }
+  } else if (surface === 'carbon_mesh' || surface === 'polished_concrete') {
+    // Dark void / industrial void around the deck.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.35;
+    for (let i = 0; i < 120; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 1, 1);
+    }
+  } else {
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.5;
+    for (let i = 0; i < 220; i++) {
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
   }
+  ctx.globalAlpha = 1;
+
   return finish(c, 240, 240, 4);
 }
 

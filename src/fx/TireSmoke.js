@@ -5,41 +5,39 @@ import * as THREE from 'three';
  * the grip peak the tyres are. It is the main feedback channel telling the
  * player they are braking too hard for the surface — long before the stopping
  * distance shows it.
+ *
+ * Particle budget is tiered (`quality.smoke`) and can be resized when the
+ * renderer demotes, so a phone that drops to low does not keep a high-tier
+ * pool thrashing attribute buffers every frame.
  */
 
 function makePuffTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const ctx = c.getContext('2d');
-  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grad.addColorStop(0, 'rgba(255,255,255,0.85)');
-  grad.addColorStop(0.45, 'rgba(255,255,255,0.28)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = grad;
+  // Soft multi-lobe puff — still one sample in the shader, just a richer map.
+  const g1 = ctx.createRadialGradient(28, 30, 0, 28, 30, 26);
+  g1.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g1.addColorStop(0.5, 'rgba(255,255,255,0.28)');
+  g1.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g1;
+  ctx.fillRect(0, 0, 64, 64);
+  const g2 = ctx.createRadialGradient(40, 36, 0, 40, 36, 20);
+  g2.addColorStop(0, 'rgba(255,255,255,0.55)');
+  g2.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g2;
   ctx.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(c);
 }
 
 export class TireSmoke {
-  /** @param {THREE.Scene} scene */
+  /**
+   * @param {THREE.Scene} scene
+   * @param {number} [count]
+   */
   constructor(scene, count = 300) {
-    this.count = count;
+    this.scene = scene;
     this.texture = makePuffTexture();
-
-    this.positions = new Float32Array(count * 3);
-    this.sizes = new Float32Array(count);
-    this.alphas = new Float32Array(count);
-    this.velocities = new Float32Array(count * 3);
-    this.life = new Float32Array(count);
-    this.maxLife = new Float32Array(count);
-    this.cursor = 0;
-    this.emitAccumulator = 0;
-
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-    geo.setAttribute('size', new THREE.BufferAttribute(this.sizes, 1));
-    geo.setAttribute('alpha', new THREE.BufferAttribute(this.alphas, 1));
-
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         map: { value: this.texture },
@@ -70,10 +68,47 @@ export class TireSmoke {
       blending: THREE.NormalBlending,
     });
 
-    this.points = new THREE.Points(geo, this.material);
+    this.points = new THREE.Points(new THREE.BufferGeometry(), this.material);
     this.points.frustumCulled = false;
-    this.geometry = geo;
     scene.add(this.points);
+
+    this.cursor = 0;
+    this.emitAccumulator = 0;
+    this.count = 0;
+    this.#alloc(count);
+  }
+
+  /**
+   * Rebuild the particle pool for a new quality tier. Safe to call every
+   * demote — a no-op when the budget is unchanged.
+   * @param {number} count
+   */
+  setBudget(count) {
+    const n = Math.max(32, count | 0);
+    if (n === this.count) return;
+    this.#alloc(n);
+  }
+
+  /** @param {number} count */
+  #alloc(count) {
+    if (this.geometry) this.geometry.dispose();
+
+    this.count = count;
+    this.positions = new Float32Array(count * 3);
+    this.sizes = new Float32Array(count);
+    this.alphas = new Float32Array(count);
+    this.velocities = new Float32Array(count * 3);
+    this.life = new Float32Array(count);
+    this.maxLife = new Float32Array(count);
+    this.cursor = 0;
+    this.emitAccumulator = 0;
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(this.sizes, 1));
+    geo.setAttribute('alpha', new THREE.BufferAttribute(this.alphas, 1));
+    this.geometry = geo;
+    this.points.geometry = geo;
     this.reset();
   }
 
@@ -85,7 +120,7 @@ export class TireSmoke {
   reset() {
     this.alphas.fill(0);
     this.life.fill(0);
-    this.geometry.attributes.alpha.needsUpdate = true;
+    if (this.geometry) this.geometry.attributes.alpha.needsUpdate = true;
   }
 
   #spawn(x, y, z, speed) {
@@ -101,10 +136,10 @@ export class TireSmoke {
     this.velocities[i * 3 + 1] = 0.7 + Math.random() * 1.6;
     this.velocities[i * 3 + 2] = -speed * 0.06 - Math.random() * 3;
 
-    this.sizes[i] = 1.6 + Math.random() * 2.4;
-    this.maxLife[i] = 0.9 + Math.random() * 1.1;
+    this.sizes[i] = 1.4 + Math.random() * 2.8;
+    this.maxLife[i] = 0.85 + Math.random() * 1.25;
     this.life[i] = this.maxLife[i];
-    this.alphas[i] = 0.5 + Math.random() * 0.3;
+    this.alphas[i] = 0.45 + Math.random() * 0.35;
   }
 
   /**
@@ -154,8 +189,9 @@ export class TireSmoke {
   }
 
   dispose() {
-    this.geometry.dispose();
+    this.geometry?.dispose();
     this.material.dispose();
     this.texture.dispose();
+    this.scene.remove(this.points);
   }
 }

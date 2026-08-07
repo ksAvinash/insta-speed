@@ -6,12 +6,45 @@ import * as THREE from 'three';
  * mid-range phone degrades gracefully instead of crawling.
  */
 export const QUALITY = {
-  low: { pixelRatio: 1, shadows: false, propDistance: 500, smoke: 120, antialias: false },
-  medium: { pixelRatio: 1.5, shadows: false, propDistance: 900, smoke: 300, antialias: true },
-  high: { pixelRatio: 2, shadows: true, propDistance: 1600, smoke: 700, antialias: true },
+  low: {
+    pixelRatio: 1,
+    shadows: false,
+    propDistance: 500,
+    smoke: 120,
+    streaks: 40,
+    contactShadow: false,
+    exposure: 1.0,
+    antialias: false,
+  },
+  medium: {
+    pixelRatio: 1.5,
+    shadows: false,
+    propDistance: 900,
+    smoke: 300,
+    streaks: 70,
+    contactShadow: false,
+    exposure: 1.05,
+    antialias: true,
+  },
+  high: {
+    pixelRatio: 2,
+    shadows: true,
+    propDistance: 1600,
+    smoke: 700,
+    streaks: 100,
+    contactShadow: true,
+    exposure: 1.08,
+    antialias: true,
+  },
 };
 
 function guessTier() {
+  // Dev override: ?tier=low|medium|high for A/B perf checks.
+  if (import.meta.env.DEV && typeof location !== 'undefined') {
+    const forced = new URLSearchParams(location.search).get('tier');
+    if (forced && forced in QUALITY) return /** @type {keyof typeof QUALITY} */ (forced);
+  }
+
   const coarse = window.matchMedia('(pointer: coarse)').matches;
   const cores = navigator.hardwareConcurrency ?? 4;
   const memory = navigator.deviceMemory ?? 4;
@@ -36,7 +69,7 @@ export class Renderer {
     this.renderer.shadowMap.enabled = this.quality.shadows;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.toneMappingExposure = this.quality.exposure ?? 1.05;
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.5, 4000);
@@ -91,11 +124,17 @@ export class Renderer {
     this.quality = QUALITY[name];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality.pixelRatio));
     this.renderer.shadowMap.enabled = this.quality.shadows;
+    this.renderer.toneMappingExposure = this.quality.exposure ?? 1.05;
     this.onTierChange?.(name, this.quality);
   }
 
   render() {
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** Live GPU stats for the dev overlay — cheap to sample. */
+  get info() {
+    return this.renderer.info;
   }
 
   dispose() {
