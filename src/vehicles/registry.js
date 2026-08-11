@@ -28,8 +28,10 @@
  * @property {{ maxTorque: number, bias: number, abs: boolean, rotorMass: number,
  *              fadeTempC: number, absHz?: number }} brake
  * @property {import('../physics/Tire.js').TireCurve & { compound?: string }} tire
+ * @property {number} [minLaunchKph] opening rung on this vehicle's ladder
+ *   (defaults to 100). Car 200, bike 150, truck 100.
  * @property {number} maxLaunchKph top of this vehicle's *stock* speed ladder —
- *   players start at 100 km/h and unlock their way up, so this is a cap, not
+ *   players unlock their way up from minLaunchKph, so this is a cap, not
  *   the speed a run begins at
  * @property {number[]} [speedTiers] cap once every gating part reaches level
  *   1, 2 and 3 respectively. Repeat a value to hold the ladder back until a

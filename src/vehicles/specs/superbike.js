@@ -26,6 +26,7 @@ export default {
   brake: { maxTorque: 1800, bias: 0.9, abs: true, rotorMass: 6.4, fadeTempC: 640, absHz: 20 },
   tire: { compound: 'sport', B: 12, C: 1.9, D: 1.45, E: 0.96 },
 
+  minLaunchKph: 150,
   maxLaunchKph: 400,
   // Only the fully built bike gets a faster launch, and only one rung of it.
   // Everything that makes it quick also makes it unstable, so the extension is

@@ -27,6 +27,7 @@ export default {
   brake: { maxTorque: 78000, bias: 0.42, abs: false, rotorMass: 84, fadeTempC: 460 },
   tire: { compound: 'truck', B: 8, C: 1.75, D: 0.85, E: 0.98 },
 
+  minLaunchKph: 100,
   maxLaunchKph: 300,
   // One rung, and only on the finished truck. Fifteen tonnes on packed snow is
   // the pairing that runs out of road first: at 400 km/h the judgement window

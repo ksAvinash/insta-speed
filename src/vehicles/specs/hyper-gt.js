@@ -27,6 +27,7 @@ export default {
   brake: { maxTorque: 16000, bias: 0.68, abs: true, rotorMass: 19, fadeTempC: 720, absHz: 18 },
   tire: { compound: 'semi-slick', B: 11, C: 1.9, D: 1.35, E: 0.97 },
 
+  minLaunchKph: 200,
   maxLaunchKph: 600,
   // The one vehicle in the roster that takes the full extension. Downforce
   // scales with v^2, so the faster it launches the harder it can brake, and at

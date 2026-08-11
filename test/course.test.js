@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { VehicleSim } from '../src/physics/VehicleSim.js';
 import { PHYSICS_DT } from '../src/physics/constants.js';
 import { buildCourse, timeLimitFor, COAST_SECONDS } from '../src/core/course.js';
-import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH, SPEED_STEP_KPH } from '../src/core/speeds.js';
+import {
+  speedLadder,
+  nextSpeed,
+  clampToLadder,
+  minLaunchKph,
+  SPEED_STEP_KPH,
+} from '../src/core/speeds.js';
 import { applyUpgrades, PART_IDS, MAX_LEVEL } from '../src/vehicles/upgrades.js';
 
 // The registries use `import.meta.glob`, which is a Vite transform and does not
@@ -240,11 +246,11 @@ test('the clock catches a run nursed down to a crawl', () => {
   // Calm scenes only: a superbike left crawling in a crosswind gets blown off
   // the road before the clock ever gets to it, which is a different test.
   for (const [spec, scene, kph] of [
-    [hyperGt, saltFlats, 100],
+    [hyperGt, saltFlats, 200],
     [hyperGt, saltFlats, 600],
-    [superbike, pacificDay, 200],
+    [superbike, pacificDay, 150],
     [superbike, pacificDay, 400],
-    [semiTruck, saltFlats, 200],
+    [semiTruck, saltFlats, 100],
   ]) {
     const r = run(spec, scene, creep, kph);
     assert.equal(
@@ -310,31 +316,39 @@ test('every course leaves room to coast before braking', () => {
   }
 });
 
-test('the speed ladder starts at the base speed and ends at the vehicle top speed', () => {
-  for (const spec of VEHICLES) {
+test('the speed ladder starts at the vehicle floor and ends at its top speed', () => {
+  for (const spec of STOCK) {
     const ladder = speedLadder(spec);
-    assert.equal(ladder[0], BASE_SPEED_KPH, `${spec.name} should start at ${BASE_SPEED_KPH}`);
+    assert.equal(
+      ladder[0],
+      minLaunchKph(spec),
+      `${spec.name} should start at ${minLaunchKph(spec)}`,
+    );
     assert.equal(ladder.at(-1), spec.maxLaunchKph, `${spec.name} should end at its top speed`);
     assert.deepEqual([...ladder].sort((a, b) => a - b), ladder, 'ladder must ascend');
     assert.equal(new Set(ladder).size, ladder.length, 'ladder must not repeat a rung');
 
-    // Every step bar the last is exactly one increment.
+    // Every step bar the last is exactly one increment (last may snap to max).
     for (let i = 1; i < ladder.length - 1; i++) {
       assert.equal(ladder[i] - ladder[i - 1], SPEED_STEP_KPH);
     }
   }
+
+  assert.equal(minLaunchKph(hyperGt), 200);
+  assert.equal(minLaunchKph(superbike), 150);
+  assert.equal(minLaunchKph(semiTruck), 100);
 });
 
 test('ladder navigation clamps to what is unlocked', () => {
   const spec = hyperGt;
-  assert.equal(nextSpeed(spec, 100), 200);
+  assert.equal(nextSpeed(spec, 200), 300);
   assert.equal(nextSpeed(spec, 500), 600);
   assert.equal(nextSpeed(spec, 600), null, 'top of the ladder has no next rung');
 
   assert.equal(clampToLadder(spec, 400, 250), 200, 'cannot select beyond what is unlocked');
   assert.equal(clampToLadder(spec, 200, 600), 200, 'unlocked rungs pass through');
-  assert.equal(clampToLadder(spec, 175, 600), 100, 'off-ladder snaps down to a real rung');
+  assert.equal(clampToLadder(spec, 175, 600), 200, 'off-ladder snaps to the floor rung');
 
-  // Progress saved against the old 50 km/h ladder has to keep working.
+  // Progress saved against an old mid-rung unlock snaps onto the ladder.
   assert.equal(clampToLadder(spec, 350, 350), 300, 'a stale unlock snaps back onto the ladder');
 });

@@ -1,17 +1,27 @@
 /**
  * The speed ladder.
  *
- * Players start every vehicle at 100 km/h and unlock the next rung — 100 km/h
- * faster — by bringing the previous one to a clean stop. The final rung is the
- * vehicle's own top speed, so the ladder always ends on a round, characterful
- * number rather than wherever the increments happened to land.
+ * Each vehicle starts at its own `minLaunchKph` (car 200, bike 150, truck 100)
+ * and unlocks the next rung — 100 km/h faster — by bringing the previous one
+ * to a clean stop. The final rung is the vehicle's own top speed, so the
+ * ladder always ends on a round, characterful number rather than wherever
+ * the increments happened to land.
  *
  * The step is deliberately a whole 100: a 50 km/h bump barely changes how a
  * stop feels, so half the ladder read as the same run twice.
  */
 
+/** Fallback when a spec does not declare its own floor. */
 export const BASE_SPEED_KPH = 100;
 export const SPEED_STEP_KPH = 100;
+
+/**
+ * Opening rung for a vehicle — its own floor, or the global base.
+ * @param {import('../vehicles/registry.js').VehicleSpec} spec
+ */
+export function minLaunchKph(spec) {
+  return spec.minLaunchKph ?? BASE_SPEED_KPH;
+}
 
 /**
  * @param {import('../vehicles/registry.js').VehicleSpec} spec
@@ -19,11 +29,14 @@ export const SPEED_STEP_KPH = 100;
  */
 export function speedLadder(spec) {
   const max = spec.maxLaunchKph;
-  if (max <= BASE_SPEED_KPH) return [max];
+  const min = minLaunchKph(spec);
+  if (max <= min) return [max];
 
   const rungs = [];
-  for (let v = BASE_SPEED_KPH; v < max; v += SPEED_STEP_KPH) rungs.push(v);
-  rungs.push(max);
+  for (let v = min; v < max; v += SPEED_STEP_KPH) rungs.push(v);
+  // Always land on max even when it is not a clean step above the last rung
+  // (e.g. bike 150 → 250 → 350 → 400).
+  if (rungs[rungs.length - 1] !== max) rungs.push(max);
   return rungs;
 }
 

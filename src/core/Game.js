@@ -3,7 +3,7 @@ import { getVehicle, DEFAULT_VEHICLE_ID } from '../vehicles/registry.js';
 import { getScene, DEFAULT_SCENE_ID } from '../scenes/registry.js';
 import { buildCourse } from './course.js';
 import { scoreRun, rateRun, runMultiplier, creditsFor, firstClearBonus } from './score.js';
-import { speedLadder, nextSpeed, clampToLadder, BASE_SPEED_KPH } from './speeds.js';
+import { speedLadder, nextSpeed, clampToLadder, minLaunchKph } from './speeds.js';
 import {
   recordBest,
   getUnlockedSpeed,
@@ -36,7 +36,7 @@ export class Game {
     this.state = 'garage';
     this.vehicleId = DEFAULT_VEHICLE_ID;
     this.sceneId = DEFAULT_SCENE_ID;
-    this.launchSpeedKph = BASE_SPEED_KPH;
+    this.launchSpeedKph = minLaunchKph({ minLaunchKph: 200 });
     this.countdown = 0;
     /** @type {VehicleSim|null} */
     this.sim = null;
