@@ -3,9 +3,11 @@ import { KeyboardSource } from './KeyboardSource.js';
 import { TouchSource } from './TouchSource.js';
 import { clamp } from '../physics/constants.js';
 
-/** Seconds for a digital press to reach full brake / full lock. */
-const BRAKE_RISE = 0.18;
-const BRAKE_FALL = 0.12;
+/** Seconds for a digital press to reach full brake / full lock.
+ *  Rise is a touch longer than fall so the initial bite is progressive
+ *  (like pad compliance) while release still feels snappy for cadence work. */
+const BRAKE_RISE = 0.28;
+const BRAKE_FALL = 0.14;
 const STEER_RISE = 0.25;
 const STEER_RETURN = 0.16;
 
@@ -65,8 +67,12 @@ export class InputManager {
    */
   update(dt) {
     const braking = this.keyboard.brake || this.touch.brake;
-    const rate = braking ? dt / BRAKE_RISE : -dt / BRAKE_FALL;
-    this.brake = clamp(this.brake + rate, 0, 1);
+    // Asymptotic ease toward the target so the last 20% of travel is not a
+    // hard wall of pressure the way a linear ramp is.
+    const target = braking ? 1 : 0;
+    const tau = braking ? BRAKE_RISE : BRAKE_FALL;
+    const k = 1 - Math.exp(-dt / Math.max(tau, 1e-4));
+    this.brake = clamp(this.brake + (target - this.brake) * k, 0, 1);
 
     // Tilt is already analogue, so it bypasses the ramp entirely.
     if (this.gyroActive) {

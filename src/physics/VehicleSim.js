@@ -186,7 +186,6 @@ export class VehicleSim {
     this.steerInput = steer;
     this.elapsed += dt;
 
-    const r = s.wheelRadius;
     const q = 0.5 * this.airDensity * this.v * this.v; // dynamic pressure
     const drag = q * s.dragCoefficient * s.frontalArea;
     const downforce = q * Math.max(0, -s.liftCoefficient) * s.frontalArea;
@@ -208,11 +207,40 @@ export class VehicleSim {
     this.muScale.rear = loadSensitivity(FzR, this.staticLoad.rear);
 
     // --- brake torque -------------------------------------------------------
+    // Soften the last few m/s so the stop settles instead of locking and
+    // lurching — slip-ratio math is noisy near rest.
+    const lowSpeedBlend = clamp(this.v / 5, 0.4, 1);
+    // Mild progressive curve: light squeeze still bites; full press is not a
+    // cliff past the last centimetre of travel.
+    const brakeFeel = brake * (0.6 + 0.4 * brake);
     const bias = s.brake.bias ?? 0.65;
     const maxTorque = s.brake.maxTorque;
+    const r = s.wheelRadius;
+
+    // Cap commanded torque near what the tyre can actually take. Specs author
+    // generous caliper numbers so upgrades/fade still matter, but without a
+    // ceiling ABS spent the whole stop thrashing at the pressure floor and
+    // full brake felt mushy rather than solid. ABS remains the safety net
+    // when load transfer or a slick surface overshoots.
+    const peakMu = this.peak.mu * this.grip;
+    const torqueCeil = {
+      front: peakMu * this.muScale.front * FzF * r * 1.22,
+      rear: peakMu * this.muScale.rear * FzR * r * 1.22,
+    };
+
     const torqueCmd = {
-      front: brake * maxTorque * bias * this.padFriction(this.rotorTemp.front),
-      rear: brake * maxTorque * (1 - bias) * this.padFriction(this.rotorTemp.rear),
+      front: Math.min(
+        brakeFeel * maxTorque * bias * this.padFriction(this.rotorTemp.front) * lowSpeedBlend,
+        torqueCeil.front,
+      ),
+      rear: Math.min(
+        brakeFeel *
+          maxTorque *
+          (1 - bias) *
+          this.padFriction(this.rotorTemp.rear) *
+          lowSpeedBlend,
+        torqueCeil.rear,
+      ),
     };
 
     this.#updateAbs(dt, torqueCmd);
@@ -249,6 +277,12 @@ export class VehicleSim {
         } else {
           this.omega[axle] += ((tireTorque - brakeTorque) / this.wheelInertia) * sub;
           if (this.omega[axle] < 0) this.omega[axle] = 0;
+          // Keep free-rolling wheels from spinning past road speed under no
+          // brake — a small damping term toward v/r feels planted, not icey.
+          if (brakeTorque < 1e-3 && this.v > 0.5) {
+            const target = this.v / r;
+            this.omega[axle] += (target - this.omega[axle]) * Math.min(1, sub * 8);
+          }
         }
       }
 
@@ -278,18 +312,29 @@ export class VehicleSim {
 
     this.#stepLateral(dt, steer, FzF, FzR);
 
-    if (this.v <= 0.05) {
+    // Settle to a stop once crawling — kill residual lateral/yaw so the car
+    // does not keep creeping sideways after the wheels have stopped.
+    if (this.v <= 0.12) {
       this.v = 0;
       this.vy = 0;
       this.yawRate = 0;
+      this.omega.front = 0;
+      this.omega.rear = 0;
+      this.slip.front = 0;
+      this.slip.rear = 0;
+      this.ax = Math.min(this.ax, 0);
       this.stopped = true;
     }
   }
 
   /**
-   * ABS holds slip near the peak of the tyre curve by pulsing the calipers.
-   * Vehicles without it simply lock, which is exactly the point of fitting some
-   * of the roster with drums and no electronics.
+   * ABS only fights *excess* slip. Earlier it servoed every frame toward peak
+   * slip, which meant the gate sat at 0.2–0.4 for the whole stop and full
+   * brake felt mushy and constantly "working" rather than solid until a real
+   * lock-up threat.
+   *
+   * Band control: release only once past the peak, reapply once back under it.
+   * Vehicles without ABS simply lock — that is still the point of the drums.
    */
   #updateAbs(dt, torqueCmd) {
     if (!this.spec.brake.abs) {
@@ -299,26 +344,34 @@ export class VehicleSim {
       return;
     }
 
-    // A real ABS modulates caliper pressure toward a target slip rather than
-    // releasing the brake outright — dumping to zero would spin the wheel back
-    // up and lose more distance than simply locking. `ABS_SERVO_RATE` sets how
-    // fast pressure can swing across its full range (~4 ticks, i.e. 33 ms).
-    const ABS_SERVO_RATE = 30;
-    const PRESSURE_FLOOR = 0.15;
+    const ABS_MIN_SPEED = 1.0;
+    // Gentle rates — ABS should be a brief pulse, not a continuous buzz.
+    const RELEASE_RATE = 8;
+    const REAPPLY_RATE = 6;
+    const PRESSURE_FLOOR = 0.55;
+    const peak = this.peak.slip;
     let active = false;
 
     for (const axle of /** @type {const} */ (['front', 'rear'])) {
-      if (torqueCmd[axle] <= 0 || this.v <= 2) {
-        this.absGate[axle] = 1;
+      if (torqueCmd[axle] <= 0 || this.v <= ABS_MIN_SPEED) {
+        this.absGate[axle] = Math.min(1, this.absGate[axle] + REAPPLY_RATE * dt);
         continue;
       }
 
       const slipMag = Math.abs(this.slip[axle]);
-      const error = (this.peak.slip - slipMag) / this.peak.slip;
-      const delta = clamp(error, -1, 1) * ABS_SERVO_RATE * dt;
-      this.absGate[axle] = clamp(this.absGate[axle] + delta, PRESSURE_FLOOR, 1);
+      if (slipMag > peak * 1.2) {
+        // Well past the peak — bleed pressure.
+        this.absGate[axle] = Math.max(
+          PRESSURE_FLOOR,
+          this.absGate[axle] - RELEASE_RATE * dt,
+        );
+      } else if (slipMag < peak * 0.7) {
+        // Back under the peak — rebuild.
+        this.absGate[axle] = Math.min(1, this.absGate[axle] + REAPPLY_RATE * dt);
+      }
+      // Inside the band: hold (hysteresis, no chatter).
 
-      if (this.absGate[axle] < 0.95) active = true;
+      if (this.absGate[axle] < 0.97) active = true;
     }
 
     this.absActive = active;

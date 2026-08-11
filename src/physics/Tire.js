@@ -65,12 +65,18 @@ export function peakSlip(curve) {
 /**
  * Longitudinal slip ratio. Negative under braking (wheel turning slower than
  * the road passing beneath it), -1 when fully locked.
+ *
+ * The floor on the denominator is deliberate: at walking pace a tiny wheel
+ * lag against a ~0 denom would spike slip to ±1 every frame, which made the
+ * last metres of every stop feel like a sudden lock-up rather than a settle.
+ * Real tyre models regularise the same way (or switch to a low-speed blend).
+ *
  * @param {number} wheelOmega rad/s
  * @param {number} wheelRadius m
  * @param {number} groundSpeed m/s
  */
 export function slipRatio(wheelOmega, wheelRadius, groundSpeed) {
-  const denom = Math.max(Math.abs(groundSpeed), 1e-3);
+  const denom = Math.max(Math.abs(groundSpeed), 1.2);
   return (wheelOmega * wheelRadius - groundSpeed) / denom;
 }
 
