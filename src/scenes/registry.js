@@ -46,4 +46,4 @@ export function getScene(id) {
   return byId.get(id) ?? SCENES[0];
 }
 
-export const DEFAULT_SCENE_ID = SCENES.find((s) => s.id === 'salt-flats')?.id ?? SCENES[0]?.id;
+export const DEFAULT_SCENE_ID = SCENES.find((s) => s.id === 'monsoon-run')?.id ?? SCENES[0]?.id;
