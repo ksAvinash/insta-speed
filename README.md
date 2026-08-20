@@ -147,3 +147,18 @@ Deck Bridge — so builds are a real axis of that matrix, not a formality.
 Pushing to `main` builds and publishes to GitHub Pages via
 `.github/workflows/deploy.yml`. Pages serves over HTTPS, which is what tilt
 steering needs. Enable Pages with "GitHub Actions" as the source.
+
+### Analytics (Cloudflare Web Analytics)
+
+GitHub Pages has no built-in site analytics. Optional, privacy-first Cloudflare
+Web Analytics is wired in via `src/analytics.js`:
+
+1. Cloudflare dashboard → **Analytics & logs** → **Web Analytics** → **Add a site**
+2. Choose **Use JavaScript snippet** (works without proxying DNS through Cloudflare)
+3. Copy the `token` from the snippet’s `data-cf-beacon`
+4. Repo → **Settings** → **Secrets and variables** → **Actions** → add
+   `VITE_CF_BEACON` = that token
+5. Redeploy (`push` to `main` or re-run the workflow)
+
+Local builds stay beacon-free unless you set `VITE_CF_BEACON` in a `.env`
+(see `.env.example`).

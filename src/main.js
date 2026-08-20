@@ -1,4 +1,5 @@
 import './ui/styles.css';
+import './analytics.js';
 
 import { Game } from './core/Game.js';
 import { Loop } from './core/Loop.js';

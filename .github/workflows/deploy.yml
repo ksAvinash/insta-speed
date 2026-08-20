@@ -27,7 +27,10 @@ jobs:
       - run: npm test
       # `npm run build` runs `models` first (see package.json), then vite build.
       # GLBs land in public/models/ and are copied into dist/models/ by Vite.
+      # VITE_CF_BEACON (optional) enables Cloudflare Web Analytics on the Pages build.
       - name: Generate models and build
+        env:
+          VITE_CF_BEACON: ${{ secrets.VITE_CF_BEACON }}
         run: npm run build
       - name: Verify vehicle models in dist
         run: |
