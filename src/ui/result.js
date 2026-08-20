@@ -70,10 +70,10 @@ export class Result {
     // separately — otherwise the number just looks inconsistent run to run.
     if (result.creditsEarned > 0) {
       this.credits.textContent = result.clearBonus
-        ? `+${int(result.creditsEarned)} cr — ${int(result.runCredits)} for the run, ${int(
+        ? `+$${int(result.creditsEarned)} — $${int(result.runCredits)} for the run, $${int(
             result.clearBonus,
-          )} first clear · ${int(result.credits)} banked`
-        : `+${int(result.creditsEarned)} cr · ${int(result.credits)} banked`;
+          )} first clear · $${int(result.credits)} banked`
+        : `+$${int(result.creditsEarned)} · $${int(result.credits)} banked`;
       this.credits.hidden = false;
     } else {
       this.credits.hidden = true;

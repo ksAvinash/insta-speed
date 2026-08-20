@@ -26,12 +26,12 @@ export default {
   brake: { maxTorque: 1800, bias: 0.9, abs: true, rotorMass: 6.4, fadeTempC: 640, absHz: 20 },
   tire: { compound: 'sport', B: 12, C: 1.9, D: 1.45, E: 0.96 },
 
+  // Base + three unlocks (50 km/h steps). Cap kept modest — the short
+  // wheelbase still unloads the rear under hard braking.
   minLaunchKph: 150,
-  maxLaunchKph: 400,
-  // Only the fully built bike gets a faster launch, and only one rung of it.
-  // Everything that makes it quick also makes it unstable, so the extension is
-  // held back until all three gating parts are at their top level.
-  speedTiers: [400, 400, 500],
+  maxLaunchKph: 300,
+  launchSpeeds: [150, 200, 250, 300],
+  speedTiers: [300, 300, 300],
 
   /**
    * The bike's tyres buy lateral grip, not longitudinal bite — the opposite of

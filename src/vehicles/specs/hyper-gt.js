@@ -27,14 +27,12 @@ export default {
   brake: { maxTorque: 16000, bias: 0.68, abs: true, rotorMass: 19, fadeTempC: 720, absHz: 18 },
   tire: { compound: 'semi-slick', B: 11, C: 1.9, D: 1.35, E: 0.97 },
 
-  minLaunchKph: 200,
+  // Base + three unlocks. Verified winnable stock/full across all scenes.
+  minLaunchKph: 300,
   maxLaunchKph: 600,
-  // The one vehicle in the roster that takes the full extension. Downforce
-  // scales with v^2, so the faster it launches the harder it can brake, and at
-  // 900 km/h on packed snow it still holds a lane inside a metre. What actually
-  // gates it is heat: on stock rotors a 900 km/h stop cooks to 2,180 °C and
-  // needs 2,038 m, against 1,583 m once the brakes are fitted.
-  speedTiers: [700, 800, 900],
+  launchSpeeds: [300, 400, 500, 600],
+  // No further extension — upgrades change feel, not the ladder ceiling.
+  speedTiers: [600, 600, 600],
   model: '/models/hyper-gt.glb',
   body: {
     parts: [

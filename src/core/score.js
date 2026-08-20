@@ -72,7 +72,7 @@ export function runMultiplier(launchSpeedKph, sceneMultiplier = 1) {
   return speedMultiplier(launchSpeedKph) * sceneMultiplier;
 }
 
-/** Credits from a run = the score itself (perfect stop → 100 cr). */
+/** Purse from a run = the score itself (perfect stop → $100). */
 export function creditsFor(score) {
   return Math.max(0, Math.round(score));
 }

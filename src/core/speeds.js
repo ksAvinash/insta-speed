@@ -1,25 +1,25 @@
 /**
  * The speed ladder.
  *
- * Each vehicle starts at its own `minLaunchKph` (car 200, bike 150, truck 100)
- * and unlocks the next rung — 100 km/h faster — by bringing the previous one
- * to a clean stop. The final rung is the vehicle's own top speed, so the
- * ladder always ends on a round, characterful number rather than wherever
- * the increments happened to land.
+ * Prefer an explicit `launchSpeeds` list on the vehicle (four rungs: base +
+ * three unlocks). Otherwise fall back to min → max in `speedStepKph` steps.
  *
- * The step is deliberately a whole 100: a 50 km/h bump barely changes how a
- * stop feels, so half the ladder read as the same run twice.
+ * Clean stops unlock the next rung. Upgrade `speedTiers` can still raise the
+ * cap when present, but the stock roster uses fixed lists.
  */
 
-/** Fallback when a spec does not declare its own floor. */
+/** Fallback when a spec does not declare its own floor / step. */
 export const BASE_SPEED_KPH = 100;
 export const SPEED_STEP_KPH = 100;
 
 /**
- * Opening rung for a vehicle — its own floor, or the global base.
+ * Opening rung for a vehicle — first launch speed, minLaunchKph, or global base.
  * @param {import('../vehicles/registry.js').VehicleSpec} spec
  */
 export function minLaunchKph(spec) {
+  if (Array.isArray(spec.launchSpeeds) && spec.launchSpeeds.length) {
+    return Math.min(...spec.launchSpeeds);
+  }
   return spec.minLaunchKph ?? BASE_SPEED_KPH;
 }
 
@@ -28,14 +28,21 @@ export function minLaunchKph(spec) {
  * @returns {number[]} ascending, always at least one rung
  */
 export function speedLadder(spec) {
+  if (Array.isArray(spec.launchSpeeds) && spec.launchSpeeds.length) {
+    const max = spec.maxLaunchKph ?? Math.max(...spec.launchSpeeds);
+    // Include any upgrade-extended cap as a final rung when it exceeds the list.
+    const rungs = [...new Set(spec.launchSpeeds.filter((v) => v <= max))];
+    if (max > rungs[rungs.length - 1]) rungs.push(max);
+    return rungs.sort((a, b) => a - b);
+  }
+
   const max = spec.maxLaunchKph;
   const min = minLaunchKph(spec);
+  const step = spec.speedStepKph ?? SPEED_STEP_KPH;
   if (max <= min) return [max];
 
   const rungs = [];
-  for (let v = min; v < max; v += SPEED_STEP_KPH) rungs.push(v);
-  // Always land on max even when it is not a clean step above the last rung
-  // (e.g. bike 150 → 250 → 350 → 400).
+  for (let v = min; v < max; v += step) rungs.push(v);
   if (rungs[rungs.length - 1] !== max) rungs.push(max);
   return rungs;
 }

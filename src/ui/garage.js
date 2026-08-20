@@ -434,7 +434,7 @@ export class Garage {
     const levels = game.upgrades;
     const credits = game.credits;
 
-    this.creditBalance.textContent = `${int(credits)} cr`;
+    this.creditBalance.textContent = `$${int(credits)}`;
     this.partsList.innerHTML = '';
 
     // Glyph + short label for each bay part.
@@ -464,10 +464,10 @@ export class Garage {
         'aria-label',
         maxed
           ? `${part.name}, maxed, ${fitted}`
-          : `${part.name}, level ${level} of ${MAX_LEVEL}, next ${nextLabel}, ${int(cost)} credits`,
+          : `${part.name}, level ${level} of ${MAX_LEVEL}, next ${nextLabel}, $${int(cost)}`,
       );
-      if (!maxed && !affordable) btn.title = `${int(cost - credits)} cr short`;
-      else btn.title = maxed ? fitted : `${nextLabel} · ${int(cost)} cr`;
+      if (!maxed && !affordable) btn.title = `$${int(cost - credits)} short`;
+      else btn.title = maxed ? fitted : `${nextLabel} · $${int(cost)}`;
 
       // Three arc "circle-cuts" around the icon — filled = levels owned.
       const cuts = Array.from({ length: MAX_LEVEL }, (_, i) => {
@@ -483,7 +483,7 @@ export class Garage {
         </span>
         <span class="upgrade-glyph" aria-hidden="true">${meta.glyph}</span>
         <span class="upgrade-name">${meta.label}</span>
-        <span class="upgrade-meta">${maxed ? 'MAX' : `${int(cost)}`}</span>
+        <span class="upgrade-meta">${maxed ? 'MAX' : `$${int(cost)}`}</span>
       `;
 
       btn.addEventListener('click', () => {
@@ -497,7 +497,7 @@ export class Garage {
         if (!this.upgradeHint) return;
         this.upgradeHint.textContent = maxed
           ? `${part.name} · ${fitted}`
-          : `${part.name} → ${nextLabel}${affordable ? '' : ' · need more cr'}`;
+          : `${part.name} → ${nextLabel}${affordable ? '' : ' · need more $'}`;
       };
       btn.addEventListener('pointerenter', showHint);
       btn.addEventListener('focus', showHint);

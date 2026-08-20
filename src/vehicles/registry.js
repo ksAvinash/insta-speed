@@ -28,15 +28,13 @@
  * @property {{ maxTorque: number, bias: number, abs: boolean, rotorMass: number,
  *              fadeTempC: number, absHz?: number }} brake
  * @property {import('../physics/Tire.js').TireCurve & { compound?: string }} tire
- * @property {number} [minLaunchKph] opening rung on this vehicle's ladder
- *   (defaults to 100). Car 200, bike 150, truck 100.
- * @property {number} maxLaunchKph top of this vehicle's *stock* speed ladder —
- *   players unlock their way up from minLaunchKph, so this is a cap, not
- *   the speed a run begins at
- * @property {number[]} [speedTiers] cap once every gating part reaches level
- *   1, 2 and 3 respectively. Repeat a value to hold the ladder back until a
- *   later tier; omit the field for a vehicle that never extends. Any change
- *   here has to be re-run through `test/course.test.js`.
+ * @property {number} [minLaunchKph] opening rung (defaults to 100)
+ * @property {number} maxLaunchKph top of this vehicle's speed ladder
+ * @property {number[]} [launchSpeeds] explicit ladder (preferred). Base + three
+ *   unlocks, e.g. car [300,400,500,600]
+ * @property {number} [speedStepKph] step when launchSpeeds is omitted
+ * @property {number[]} [speedTiers] optional cap once gating parts reach level
+ *   1/2/3. Repeat the max to freeze the ladder. Re-run course.test.js if changed.
  * @property {Record<string, import('./upgrades.js').UpgradeStep[]>} [upgrades]
  *   per-part overrides of the default ladders in `./upgrades.js`
  * @property {object} body procedural mesh recipe, see render/VehicleView.js

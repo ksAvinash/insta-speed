@@ -27,13 +27,11 @@ export default {
   brake: { maxTorque: 78000, bias: 0.42, abs: false, rotorMass: 84, fadeTempC: 460 },
   tire: { compound: 'truck', B: 8, C: 1.75, D: 0.85, E: 0.98 },
 
+  // Base + three unlocks (50 km/h steps). Fade, not grip, is still the story.
   minLaunchKph: 100,
-  maxLaunchKph: 300,
-  // One rung, and only on the finished truck. Fifteen tonnes on packed snow is
-  // the pairing that runs out of road first: at 400 km/h the judgement window
-  // has already stretched to 4.5 s because the stop alone eats 1,435 m, and
-  // anything beyond that is a wait rather than a run.
-  speedTiers: [300, 300, 400],
+  maxLaunchKph: 250,
+  launchSpeeds: [100, 150, 200, 250],
+  speedTiers: [250, 250, 250],
   model: '/models/semi-truck.glb',
   body: {
     parts: [

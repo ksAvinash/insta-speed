@@ -112,35 +112,24 @@ test('the tier is the weakest of the gating parts, and chassis does not count', 
   assert.equal(upgradeTier({ tyres: 3, brakes: 3, aero: 3, chassis: 0 }), 3, 'chassis is not a gate');
 });
 
-test('the speed ladder extends only as the vehicle earns it', () => {
-  // The caps the roster was tuned and matrix-tested against.
-  const expected = new Map([
-    [hyperGt, [600, 700, 800, 900]],
-    [superbike, [400, 400, 400, 500]],
-    [semiTruck, [300, 300, 300, 400]],
-  ]);
-
-  for (const [spec, caps] of expected) {
+test('the stock ladder is fixed — upgrades do not raise the ceiling', () => {
+  // Roster uses frozen speedTiers equal to maxLaunchKph so parts change feel,
+  // not how far the ladder goes.
+  for (const spec of VEHICLES) {
     for (let tier = 0; tier <= MAX_LEVEL; tier++) {
       const built = applyUpgrades(spec, levels(tier));
       assert.equal(
         tunedMaxSpeed(spec, levels(tier)),
-        caps[tier],
+        spec.maxLaunchKph,
         `${spec.name} at tier ${tier}`,
       );
-      assert.equal(built.maxLaunchKph, caps[tier], `${spec.name} derived spec at tier ${tier}`);
-      assert.equal(
-        speedLadder(built).at(-1),
-        caps[tier],
-        `${spec.name} ladder should top out at its tier cap`,
-      );
+      assert.equal(built.maxLaunchKph, spec.maxLaunchKph);
+      assert.equal(speedLadder(built).at(-1), spec.maxLaunchKph);
     }
   }
 });
 
 test('a part fitted without the others buys no extra speed', () => {
-  // Race tyres on stock rotors is not a faster car — heat is what runs out
-  // first, and the physics agrees.
   for (const spec of VEHICLES) {
     for (const part of ['tyres', 'brakes', 'aero']) {
       assert.equal(
@@ -152,18 +141,9 @@ test('a part fitted without the others buys no extra speed', () => {
   }
 });
 
-test('nextSpeedTier names the level that actually raises the cap', () => {
-  // The GT gains a rung per tier.
-  assert.deepEqual(nextSpeedTier(hyperGt, levels(0)), { kph: 700, level: 1 });
-  assert.deepEqual(nextSpeedTier(hyperGt, levels(2)), { kph: 900, level: 3 });
-  assert.equal(nextSpeedTier(hyperGt, levels(3)), null, 'fully built has no next tier');
-
-  // The bike and truck hold their single rung back until everything is fitted,
-  // so tiers 1 and 2 must still point at level 3 rather than reporting a gain.
-  for (const spec of [superbike, semiTruck]) {
-    const top = spec.speedTiers.at(-1);
-    assert.deepEqual(nextSpeedTier(spec, levels(0)), { kph: top, level: 3 }, spec.name);
-    assert.deepEqual(nextSpeedTier(spec, levels(2)), { kph: top, level: 3 }, spec.name);
+test('nextSpeedTier is null when the ladder is already at its cap', () => {
+  for (const spec of VEHICLES) {
+    assert.equal(nextSpeedTier(spec, levels(0)), null, spec.name);
     assert.equal(nextSpeedTier(spec, levels(3)), null, spec.name);
   }
 });
@@ -179,7 +159,7 @@ test('stored levels are clamped onto the parts that exist', () => {
   // A clamped level must still produce a usable spec rather than reading past
   // the end of a ladder that has since been shortened.
   const spec = applyUpgrades(hyperGt, { tyres: 99, brakes: 99, aero: 99, chassis: 99 });
-  assert.equal(spec.maxLaunchKph, 900);
+  assert.equal(spec.maxLaunchKph, 600);
 });
 
 test('costs rise with level and every part is buyable', () => {

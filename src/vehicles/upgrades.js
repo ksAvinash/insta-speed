@@ -33,7 +33,7 @@ export const MAX_LEVEL = 3;
 
 /**
  * Credit cost to move *up to* each level. Index is the level being bought.
- * Tuned for the 0–100 score (= credits) model: a perfect run pays 100 cr, so
+ * Tuned for the 0–100 score (= $) model: a perfect run pays $100, so
  * L1 is about one good clear, L3 a short campaign.
  */
 export const LEVEL_COSTS = [0, 120, 280, 600];
