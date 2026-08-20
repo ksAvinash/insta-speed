@@ -44,24 +44,19 @@ export class Result {
     this.detail.textContent = (DETAIL[result.outcome] ?? DETAIL.stopped)(result);
 
     renderStats(this.stats, {
-      // The two halves of the score, so it is obvious what to attack next run.
-      // Pace folds in both "vs par" and remaining clock — broken out so a
-      // buzzer-beater does not look identical to a comfortable stop.
-      Precision: result.clean
-        ? `${int(result.precisionPoints)} · ${result.error.toFixed(2)} m off`
+      // Score is out of 100: Close (80) + Fast (20).
+      Close: result.clean
+        ? `${int(result.closePoints ?? result.precisionPoints)} / 80 · ${result.error.toFixed(2)} m off`
         : '—',
-      Pace: result.clean
-        ? `${int(result.paceBonus)} · ${Math.round((result.parPace ?? result.pace) * 100)}% par · ${Math.round(
-            (result.clock ?? 0) * 100,
-          )}% clock`
+      Fast: result.clean
+        ? `${int(result.fastPoints ?? result.paceBonus)} / 20 · ${seconds(
+            result.remainingSeconds ?? Math.max(0, result.timeLimit - result.time),
+          )} left`
         : '—',
-      'Time left': result.clean
-        ? `${seconds(result.remainingSeconds ?? Math.max(0, result.timeLimit - result.time))}`
-        : '—',
-      'Launch speed': `${int(result.launchSpeedKph)} km/h · ×${result.multiplier.toFixed(2)}`,
+      'Launch speed': `${int(result.launchSpeedKph)} km/h`,
       'Stopped at': metres(result.stoppedAt),
       'Target line': metres(result.target),
-      'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)}, limit ${result.timeLimit} s)`,
+      'Run time': `${seconds(result.time)} (par ${seconds(result.parSeconds)})`,
       'Peak rotor': `${Math.round(result.peakRotorC)}°C`,
     });
 

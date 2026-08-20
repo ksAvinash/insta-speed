@@ -1,80 +1,25 @@
 import { clamp } from '../physics/constants.js';
 
 /**
- * Scoring.
+ * Scoring — out of 100, kept deliberately simple.
  *
- * Three things are worth points, and they pull against each other:
+ *   Close (0–70)  how near the line you stopped
+ *   Fast  (0–30)  how much time you had left (par = full marks)
  *
- * - **Precision** — how close to the line you stopped. Squared, so the last
- *   metre is worth far more than the first ten.
- * - **Pace** — how little time the run took versus par (coast then brake flat
- *   out). Rewards committing late rather than nursing the car down early.
- * - **Clock** — how much of the run limit you still had when you stopped.
- *   Finishing with time in hand pays; scraping in on the buzzer does not.
+ * Failures (crash / off-road / wall / timeout) score **0**.
  *
- * Pace and clock are blended into one "speed" half, then multiplied by
- * precision. Otherwise the quickest run available would be to stand on the
- * brake at launch, stop 300 m short in record time and collect the speed half
- * anyway — and a stop that lands with 0.1 s left would score the same as one
- * that left half the limit unused.
- *
- * Kept free of any registry import so it stays testable under plain node.
+ * Fast is multiplied by Close so braking at launch and stopping 200 m short
+ * cannot farm the time half. No 100,000-point pots, no squared curves.
  */
 
-export const PRECISION_POINTS = 70000;
-export const PACE_POINTS = 30000;
+export const CLOSE_POINTS = 80;
+export const FAST_POINTS = 20;
+/** @deprecated use CLOSE_POINTS — kept so old imports do not explode mid-refactor */
+export const PRECISION_POINTS = CLOSE_POINTS;
+/** @deprecated use FAST_POINTS */
+export const PACE_POINTS = FAST_POINTS;
 
-/** Share of the speed half that comes from beating par vs saving clock. */
-export const PAR_WEIGHT = 0.55;
-export const CLOCK_WEIGHT = 0.45;
-
-/**
- * The multiplier is what makes upgrades worth buying.
- *
- * `core/course.js` places the target line by simulating the vehicle you are
- * actually driving, so fitting better brakes moves the line closer and par
- * shrinks with it — the raw score at a given rung barely moves. Upgrades
- * therefore cannot pay off inside a run; they pay off by extending the ladder,
- * and the reward has to live on the rung itself.
- *
- * At 100 km/h this is 1.0 and at 900 it is 2.6, so a fully built car earns
- * roughly two and a half times what it did on its first launch.
- */
-const SPEED_MULTIPLIER_PER_KPH = 1 / 500;
-const REFERENCE_KPH = 100;
-
-/** @param {number} launchSpeedKph */
-export function speedMultiplier(launchSpeedKph) {
-  return 1 + Math.max(0, launchSpeedKph - REFERENCE_KPH) * SPEED_MULTIPLIER_PER_KPH;
-}
-
-/**
- * Total multiplier for a run. The scene half is declared per scene
- * (`scoreMultiplier`), so a crosswind bridge pays for the extra difficulty
- * rather than just being the annoying one.
- * @param {number} launchSpeedKph
- * @param {number} [sceneMultiplier]
- */
-export function runMultiplier(launchSpeedKph, sceneMultiplier = 1) {
-  return speedMultiplier(launchSpeedKph) * sceneMultiplier;
-}
-
-/** Credits banked from a score. Kept coarse — the wallet is not a second score. */
-export function creditsFor(score) {
-  return Math.round(score / 100);
-}
-
-/**
- * Paid once per vehicle/scene/rung, the first time it is stopped cleanly.
- * Exploring the roster should fund the first upgrades; grinding one known run
- * should not.
- * @param {number} launchSpeedKph
- */
-export function firstClearBonus(launchSpeedKph) {
-  return Math.round(300 + launchSpeedKph * 2);
-}
-
-/** Rating bands, in metres of error from the target line. */
+/** Grades from metres off the line. */
 export const RATINGS = [
   { grade: 'S', within: 0.5, label: 'Surgical' },
   { grade: 'A', within: 2, label: 'Excellent' },
@@ -84,22 +29,17 @@ export const RATINGS = [
 ];
 
 /**
- * How far from the line still scores anything. Proportional to course length,
- * with a floor so the short opening courses are not brutal.
- * @param {number} target
+ * How far from the line still scores. ~10% of the course, floor 10 m so short
+ * openers are not scored to the centimetre.
+ * @param {number} target metres to the line
  */
 export function scoringWindow(target) {
-  return Math.max(20, target * 0.12);
+  return Math.max(10, target * 0.1);
 }
 
 /**
- * How much of the "perfect run's spare clock" you still had when you stopped.
- *
- * A par run leaves `timeLimit − parSeconds` on the board; that headroom is
- * full marks. Stopping later burns it. Stopping earlier cannot exceed 1 — the
- * same cap as beating par, so you cannot farm by inventing a shorter run.
- *
- * @param {number} seconds actual run time
+ * Time marks: full if you finish at/under par, zero if you hit the limit.
+ * @param {number} seconds
  * @param {number} parSeconds
  * @param {number} timeLimit
  */
@@ -110,66 +50,100 @@ export function clockFactor(seconds, parSeconds, timeLimit) {
 }
 
 /**
+ * Small credit bump for launching faster. Does **not** inflate the 0–100 score —
+ * upgrades still pay by unlocking harder (better-paying) rungs via this bonus.
+ * +0 at 100 km/h, +5 at 600, +8 at 900.
+ * @param {number} launchSpeedKph
+ */
+export function speedBonus(launchSpeedKph) {
+  return Math.round(Math.max(0, launchSpeedKph - 100) / 100);
+}
+
+/**
+ * @deprecated Prefer speedBonus for credits. Returns 1 + tiny bump so old
+ * callers that multiply a score stay roughly sane (max ~1.08).
+ */
+export function speedMultiplier(launchSpeedKph) {
+  return 1 + speedBonus(launchSpeedKph) / 100;
+}
+
+/** @deprecated Scene difficulty now pays via credits, not a score multiplier. */
+export function runMultiplier(launchSpeedKph, sceneMultiplier = 1) {
+  return speedMultiplier(launchSpeedKph) * sceneMultiplier;
+}
+
+/** Credits from a run = the score itself (perfect stop → 100 cr). */
+export function creditsFor(score) {
+  return Math.max(0, Math.round(score));
+}
+
+/**
+ * One-time bonus the first time you clear a vehicle/scene/rung.
+ * Exploring the roster funds early upgrades; grinding one run does not.
+ * @param {number} launchSpeedKph
+ */
+export function firstClearBonus(launchSpeedKph) {
+  return 20 + Math.round(launchSpeedKph / 20); // 25–65-ish
+}
+
+/**
  * @param {object} run
- * @param {boolean} run.clean true only for a stop on the road, short of the wall
+ * @param {boolean} run.clean stop on the road, short of the wall
  * @param {number} run.error metres from the target line
  * @param {number} run.target target distance, m
- * @param {number} run.seconds what the run actually took
- * @param {number} run.parSeconds what a perfectly judged run takes
- * @param {number} [run.timeLimit] hard clock for the pairing; required for the
- *   remaining-time half. Falls back to par-only pace if omitted (tests).
- * @param {number} [run.multiplier] speed × scene, see `runMultiplier`
+ * @param {number} run.seconds actual run time
+ * @param {number} run.parSeconds perfect-run time
+ * @param {number} [run.timeLimit] hard clock; falls back to par-only if omitted
  */
-export function scoreRun({
-  clean,
-  error,
-  target,
-  seconds,
-  parSeconds,
-  timeLimit,
-  multiplier = 1,
-}) {
+export function scoreRun({ clean, error, target, seconds, parSeconds, timeLimit }) {
+  const remainingSeconds = Math.max(0, (timeLimit ?? parSeconds) - seconds);
+
   if (!clean) {
     return {
       score: 0,
+      close: 0,
+      fast: 0,
+      closePoints: 0,
+      fastPoints: 0,
+      remainingSeconds: 0,
+      // Aliases so UI / Game keep working without a big rename pass.
       accuracy: 0,
       pace: 0,
+      parPace: 0,
       clock: 0,
       precisionPoints: 0,
       paceBonus: 0,
-      multiplier,
-      remainingSeconds: 0,
+      multiplier: 1,
     };
   }
 
-  const accuracy = clamp(1 - error / scoringWindow(target), 0, 1);
-  // Par is measured in still air with no steering, so a real run on a windy
-  // bridge can never quite match it. Landing at or under par is simply full
-  // marks rather than something to chase past.
-  const parPace = clamp(parSeconds / Math.max(seconds, 0.001), 0, 1);
+  const window = scoringWindow(target);
+  const close = clamp(1 - error / window, 0, 1);
 
   const limit = timeLimit ?? parSeconds;
-  const remainingSeconds = Math.max(0, limit - seconds);
-  const clock = timeLimit != null ? clockFactor(seconds, parSeconds, timeLimit) : parPace;
+  // At or under par → full time marks. Hitting the limit → zero.
+  const fast = timeLimit != null ? clockFactor(seconds, parSeconds, limit) : clamp(parSeconds / Math.max(seconds, 0.001), 0, 1);
+  // Also track raw "vs par" for the result card (informational only).
+  const parPace = clamp(parSeconds / Math.max(seconds, 0.001), 0, 1);
 
-  // Speed half: commit late (par) and leave time on the clock (remaining).
-  const pace = parPace * PAR_WEIGHT + clock * CLOCK_WEIGHT;
-
-  // The multiplier scales both halves, so it can never rescue a run that missed
-  // — a stop 200 m short still multiplies out to zero.
-  const precisionPoints = Math.round(PRECISION_POINTS * accuracy ** 2 * multiplier);
-  const paceBonus = Math.round(PACE_POINTS * accuracy * pace * multiplier);
+  const closePoints = Math.round(CLOSE_POINTS * close);
+  // Fast is gated by close — a quick miss is still a miss.
+  const fastPoints = Math.round(FAST_POINTS * close * fast);
 
   return {
-    score: precisionPoints + paceBonus,
-    accuracy,
-    pace,
-    parPace,
-    clock,
-    precisionPoints,
-    paceBonus,
-    multiplier,
+    score: closePoints + fastPoints,
+    close,
+    fast,
+    closePoints,
+    fastPoints,
     remainingSeconds,
+    accuracy: close,
+    pace: fast,
+    parPace,
+    clock: fast,
+    precisionPoints: closePoints,
+    paceBonus: fastPoints,
+    multiplier: 1,
   };
 }
 

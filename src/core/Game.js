@@ -2,7 +2,7 @@ import { VehicleSim } from '../physics/VehicleSim.js';
 import { getVehicle, DEFAULT_VEHICLE_ID } from '../vehicles/registry.js';
 import { getScene, DEFAULT_SCENE_ID } from '../scenes/registry.js';
 import { buildCourse } from './course.js';
-import { scoreRun, rateRun, runMultiplier, creditsFor, firstClearBonus } from './score.js';
+import { scoreRun, rateRun, creditsFor, firstClearBonus, speedBonus } from './score.js';
 import { speedLadder, nextSpeed, clampToLadder, minLaunchKph } from './speeds.js';
 import {
   recordBest,
@@ -260,30 +260,28 @@ export class Game {
     const error = Math.abs(course.target - sim.x);
     const clean = partial.outcome === 'stopped';
 
-    const multiplier = runMultiplier(this.launchSpeedKph, this.scene.scoreMultiplier ?? 1);
-    const { score, accuracy, pace, parPace, clock, precisionPoints, paceBonus, remainingSeconds } =
-      scoreRun({
-        clean,
-        error,
-        target: course.target,
-        seconds: sim.elapsed,
-        parSeconds: course.runSeconds,
-        timeLimit: course.timeLimit,
-        multiplier,
-      });
+    const scored = scoreRun({
+      clean,
+      error,
+      target: course.target,
+      seconds: sim.elapsed,
+      parSeconds: course.runSeconds,
+      timeLimit: course.timeLimit,
+    });
     const rating = rateRun(clean, error, partial.outcome);
 
-    const isRecord = clean && recordBest(this.vehicleId, this.sceneId, score, error);
+    const isRecord = clean && recordBest(this.vehicleId, this.sceneId, scored.score, error);
 
     // A clean stop earns the next rung on this vehicle's speed ladder.
     const next = clean ? nextSpeed(this.vehicle, this.launchSpeedKph) : null;
     const unlockedKph = next && unlockSpeed(this.vehicleId, next) ? next : null;
 
-    // Credits. The first clean stop on a vehicle/scene/rung triple pays a bonus
-    // on top, so working through the roster funds the early upgrades rather
-    // than repeating one comfortable run.
+    // Credits = score (0–100) + small speed bump + first-clear bonus.
+    // Scene difficulty adds a few credits so harder stages pay a little more.
     const firstClear = clean && markCleared(this.vehicleId, this.sceneId, this.launchSpeedKph);
-    const runCredits = creditsFor(score);
+    const scenePay = clean ? Math.round(((this.scene.scoreMultiplier ?? 1) - 1) * 20) : 0;
+    const rungPay = clean ? speedBonus(this.launchSpeedKph) : 0;
+    const runCredits = creditsFor(scored.score) + Math.max(0, scenePay) + rungPay;
     const clearBonus = firstClear ? firstClearBonus(this.launchSpeedKph) : 0;
     const creditsEarned = runCredits + clearBonus;
     if (creditsEarned > 0) addCredits(creditsEarned);
@@ -292,14 +290,16 @@ export class Game {
       ...partial,
       clean,
       error,
-      score,
-      accuracy,
-      pace,
-      parPace,
-      clock,
-      precisionPoints,
-      paceBonus,
-      multiplier,
+      score: scored.score,
+      accuracy: scored.accuracy,
+      pace: scored.pace,
+      parPace: scored.parPace,
+      clock: scored.clock,
+      precisionPoints: scored.precisionPoints,
+      paceBonus: scored.paceBonus,
+      closePoints: scored.closePoints,
+      fastPoints: scored.fastPoints,
+      multiplier: 1,
       runCredits,
       clearBonus,
       creditsEarned,
@@ -315,7 +315,7 @@ export class Game {
       time: sim.elapsed,
       parSeconds: course.runSeconds,
       timeLimit: course.timeLimit,
-      remainingSeconds,
+      remainingSeconds: scored.remainingSeconds,
       peakRotorC: Math.max(sim.rotorTemp.front, sim.rotorTemp.rear),
       vehicleId: this.vehicleId,
       sceneId: this.sceneId,
