@@ -151,7 +151,7 @@ steering needs. Enable Pages with "GitHub Actions" as the source.
 ### Analytics (Cloudflare Web Analytics)
 
 GitHub Pages has no built-in site analytics. Optional, privacy-first Cloudflare
-Web Analytics is wired in via `src/analytics.js`:
+Web Analytics is injected into `index.html` at build time (see `vite.config.js`):
 
 1. Cloudflare dashboard → **Analytics & logs** → **Web Analytics** → **Add a site**
 2. Choose **Use JavaScript snippet** (works without proxying DNS through Cloudflare)
@@ -159,6 +159,9 @@ Web Analytics is wired in via `src/analytics.js`:
 4. Repo → **Settings** → **Secrets and variables** → **Actions** → add
    `VITE_CF_BEACON` = that token
 5. Redeploy (`push` to `main` or re-run the workflow)
+
+**Verify:** open the live site → View Source → search for `cloudflareinsights`,
+or DevTools → Network → filter `beacon`. Ad blockers often hide the request.
 
 Local builds stay beacon-free unless you set `VITE_CF_BEACON` in a `.env`
 (see `.env.example`).
